@@ -2,7 +2,10 @@
 pysimplegui like gui manager for pygame
 '''
 
+from typing import List, Any, Tuple
 import pygame
+
+GUI_DEBUG_MODE = True
 
 class ColorPallete:
     def __init__(self):
@@ -14,8 +17,8 @@ class ColorPallete:
 
 class Gui:
     def __init__(self, win, layout, pos=(0,0), min_element_height=16, margin=3, inner_element_margin=6, font=None):
-        self.win = win
-        self.layout = layout
+        self.win : pygame.Surface = win
+        self.layout : List[List[Element]]= layout
         self.default_font = pygame.font.SysFont('Calibri', 12)
         if font:
             self.default_font = pygame.font.SysFont('Calibri', 12)
@@ -28,7 +31,7 @@ class Gui:
         self.margin = margin
         self.inner_element_margin = inner_element_margin
         
-        self.elements = []
+        self.elements : List[Element] = []
         self.pos = pos
         
         self.calculate()
@@ -40,20 +43,34 @@ class Gui:
         self.calculate()
     
     def calculate(self):
+        ''' process layout, each element receives gui, position and initializes.
+            also calculates self size '''
         pos_y_acc = self.pos[1]
+        size_x = 0
+        size_y = 0
         
         for row in self.layout:
             pos_x_acc = self.pos[0]
             row_y_max = 0
+
+            size_row_x = 0
             for element in row:
                 self.elements.append(element)
                 element.set_gui(self)
                 element.pos = (pos_x_acc, pos_y_acc)
                 element.initialize()
+
+                size_row_x += element.size[0] + self.margin
+
                 pos_x_acc += element.size[0] + self.margin
                 row_y_max = max(row_y_max, element.size[1])
+
+            size_x = max(size_x, size_row_x)
             
             pos_y_acc += row_y_max + self.margin
+            size_y += row_y_max + self.margin
+
+        self.size = (size_x - self.margin, size_y - self.margin)
     
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONUP:
@@ -70,7 +87,6 @@ class Gui:
             # send event of mouse held
             if self.mouse_hold:
                 self.focused_element.on_hold()
-            
     
     def step(self): 
         if not self.mouse_hold:
@@ -81,6 +97,9 @@ class Gui:
     def draw(self):
         for element in self.elements:
             element.draw()
+
+        if GUI_DEBUG_MODE:
+            pygame.draw.rect(self.win, (255,0,0), (self.pos, self.size), 1)
     
     def read(self):
         if not self.event:
@@ -99,9 +118,10 @@ class Element:
     def __init__(self):
         self.pos = (0,0)
         self.size = (0,0)
-        self.gui = None
+        self.gui : Gui = None
     
     def initialize(self):
+        ''' initial position is given, calculate self size and other attributes '''
         pass
     
     def set_gui(self, gui):
@@ -111,9 +131,11 @@ class Element:
         pass
         
     def draw(self):
-        pass
+        if GUI_DEBUG_MODE:
+            pygame.draw.rect(self.gui.win, (255,255,0), (self.pos, self.size), 1)
         
-    def get_value(self):
+    def get_value(self) -> Tuple[Any, Any]:
+        ''' return key value '''
         return None
         
     def on_click(self):
@@ -179,7 +201,7 @@ class ButtonToggle(Button):
         super().__init__(text, key)
         self.selected = False
     
-    def get_value(self):
+    def get_value(self) -> Tuple[Any, Any]:
         return (self.key, self.selected)
         
     def on_click(self):
@@ -197,9 +219,13 @@ class ButtonToggle(Button):
         self.gui.win.blit(self.text_surf, (self.pos[0] + self.size[0] / 2 - self.text_surf.get_width() / 2, self.pos[1] + self.size[1] / 2 - self.text_surf.get_height() / 2))
 
 class ButtonImage(Button):
-    def __init__(self, text, key, image_surf):
+    def __init__(self, text, key, image_surf=None, image_path=None):
         super().__init__(text, key)
-        self.image_surf_original = image_surf
+        if image_surf:
+            self.image_surf_original = image_surf
+        elif image_path:
+            self.image_surf_original = pygame.image.load(image_path)
+            
     
     def initialize(self):
         super().initialize()
@@ -212,6 +238,7 @@ class ButtonImage(Button):
         self.size = (size_x, size_y)
         
     def draw(self):
+        super().draw()
         pos = self.pos
         if self is self.gui.focused_element:
             pygame.draw.rect(self.gui.win, self.gui.color_pallete.button_focus_back_color, (self.pos, self.size))
@@ -237,7 +264,7 @@ class Slider(Element):
         super().initialize()
         self.size = (self.width, self.gui.min_element_height)
         
-    def get_value(self):
+    def get_value(self) -> Tuple[Any, Any]:
         return (self.key, self.value)
         
     def step(self):
@@ -273,6 +300,7 @@ class Slider(Element):
         self.value = (self.max_value - self.min_value) * value
         
     def draw(self):
+        super().draw()
         if self is self.gui.focused_element:
             color = self.gui.color_pallete.button_focus_back_color
         else:
@@ -286,7 +314,54 @@ class Slider(Element):
         height = self.size[1] - 2 * self.margin
         pygame.draw.rect(self.gui.win, self.gui.color_pallete.button_toggle_back_color, ((x, y), (width, height)))
         pygame.draw.line(self.gui.win, self.gui.color_pallete.button_element_color, (x + width, y), (x + width, y + height - 1), 2)
+
+class ElementComposition(Element):
+    def __init__(self, layout):
+        self.layout : List[List[Element]] = layout
+        self.elements : List[Element]= []
+
+    def initialize(self):
+        self.calculate()
+
+    def calculate(self):
+        size_x = 0
+        size_y = 0
+        pos_y_acc = self.pos[1]
         
+        for row in self.layout:
+            pos_x_acc = self.pos[0]
+            row_y_max = 0
+            size_row_x = 0
+            for element in row:
+
+                self.elements.append(element)
+                element.set_gui(self.gui)
+                element.pos = (pos_x_acc, pos_y_acc)
+                element.initialize()
+
+                size_row_x += element.size[0] + self.gui.margin 
+
+                pos_x_acc += element.size[0] + self.gui.margin
+                row_y_max = max(row_y_max, element.size[1])
+            size_x = max(size_x, size_row_x)
+            
+            pos_y_acc += row_y_max + self.gui.margin
+            size_y += row_y_max + self.gui.margin
+        
+        self.size = (size_x - self.gui.margin, size_y - self.gui.margin)
+    
+    def step(self):
+        super().step()
+        for element in self.elements:
+            element.step()
+    
+    def draw(self):
+        super().draw()
+        for element in self.elements:
+            element.draw()
+
+    def get_value(self) -> Tuple[Any, Any]:
+        pass
 
 if __name__ == '__main__':
     ''' example usage '''
@@ -300,10 +375,18 @@ if __name__ == '__main__':
     
     image = pygame.image.load('output.png')
     
+    layout_comp = [
+        [Slider('sliderC1', 0, 100, 50)],
+        [Slider('sliderC2', 0, 100, 50)],
+        [Slider('sliderC3', 0, 100, 50)],
+    ]
+
     layout = [
         [Button('press me', key='button1'), Button('me too', key='button2'), ButtonToggle('toggleMe', key='toggl1')],
         [Button('me three', key='button3'), Text('this is text'), ButtonImage('imImage', key='button_image1', image_surf=image)],
         [Slider('slider1', 0, 100, 50), Slider('slider2', 0, 100, 50), Slider('slider3', 0, 100, 50), Slider('slider4', 0, 100, 50)],
+        [ElementComposition(layout_comp), Button('press me', key='button4')],
+        [Button('button after last', key='afterlast')]
     ]
     gui = Gui(win, layout, pos=(200, 200), margin=10)
     

@@ -2,6 +2,7 @@ import pygame
 import argparse
 import PixelArtSg
 import gui
+from typing import Dict, List
 pygame.init()
 
 winWidth = 1280
@@ -15,7 +16,7 @@ TOOL_PENCIL = 1
 TOOL_EYEDROP = 2
 TOOL_RECT_SELECT = 3
 
-def apply_effect_hue(surf, amount, area=None):
+def apply_effect_hue(surf: pygame.Surface, amount, area=None):
     if not area:
         area = ((0,0),surf.get_size())
     for x in range(area[0][0], area[0][0] + area[1][0]):
@@ -26,15 +27,24 @@ def apply_effect_hue(surf, amount, area=None):
             color.hsva = (hue_value, color.hsva[1], color.hsva[2], color.hsva[3])
             surf.set_at((x, y), color)
 
+class Layer:
+    def __init__(self):
+        self.pos = (0,0)
+        self.surf = None
+    def get_surf(self):
+        return self.surf
+    def get_pos(self):
+        return self.pos
+
 class Editor:
     def __init__(self):
-        self.viewport = ViewPort()
+        self.viewport : ViewPort = ViewPort()
         self.viewport.parent = self
-        self.color_picker = ColorPicker()
+        self.color_picker : ColorPicker = ColorPicker()
         self.color_picker.parent = self
             
         self.previous_tool = TOOL_PENCIL
-        self.tools = {
+        self.tools : Dict[int, Tool] = {
             TOOL_PENCIL: ToolPencil(),
             TOOL_EYEDROP: ToolEyeDrop(),
             TOOL_RECT_SELECT: ToolRectangleSelect(),
@@ -73,7 +83,7 @@ class Editor:
     def get_viewport(self):
         return self.viewport
         
-    def get_active_layer(self):
+    def get_active_layer(self) -> Layer:
         return self.viewport.active_layer
     
     def switch_tool_previous(self):
@@ -97,26 +107,17 @@ class Editor:
         self.selection.draw()
         self.active_tool.draw()
 
-class Layer:
-    def __init__(self):
-        self.pos = (0,0)
-        self.surf = None
-    def get_surf(self):
-        return self.surf
-    def get_pos(self):
-        return self.pos
-
 class ViewPort:
     def __init__(self):
         self.parent = None
         self.zoom = 1.0
-        self.layers = []
+        self.layers : List[Layer] = []
 
         # the surf that represents the viewport
         self.surf = pygame.Surface((100,100), pygame.SRCALPHA)
         self.offset = (0,0)
-        self.active_layer = None
-        self.background = None
+        self.active_layer : Layer = None
+        self.background : pygame.Surface = None
 
     def add_layer(self, layer):
         self.layers.append(layer)
@@ -201,6 +202,7 @@ class ColorPicker:
         self.current_color = (255,255,255)
         self.offset = (0,0)
         self.rect_size = 100
+        self.parent : Editor = None
     def draw(self):
         # draw color at mouse
         pygame.draw.rect(win, editor.viewport.get_at(pygame.mouse.get_pos()), (self.offset, (self.rect_size, self.rect_size)))
@@ -211,7 +213,7 @@ class Selection:
     def __init__(self):
         self.active = False
         self.rect = None
-        self.parent = None
+        self.parent : Editor = None
     def set_rect(self, rect):
         self.rect = rect
     def draw(self):
@@ -224,7 +226,7 @@ class Selection:
 
 class Tool:
     def __init__(self, type):
-        self.parent = None
+        self.parent : Editor = None
         self.type = type
     def click_press(self):
         pass
@@ -289,7 +291,7 @@ class ToolMove(Tool):
 
 class Effect:
     def __init__(self, editor):
-        self.editor = editor
+        self.editor : Editor = editor
     def apply(self):
         pass
 
@@ -330,9 +332,11 @@ else:
 
 
 tool_bar_layout = [
-    [gui.Button('Move', key='tool_move'), gui.Button('Select', key='tool_select'), gui.Button('Pencil', key='tool_pencil')],
+    [gui.ButtonImage('', key='tool_move', image_path=r'./Assets/move.png')],
+    [gui.ButtonImage('', key='tool_select', image_path=r'./Assets/selection.png')],
+    [gui.ButtonImage('', key='tool_pencil', image_path=r'./Assets/pencil.png')],
 ]
-tool_bar = gui.Gui(win, tool_bar_layout, pos=(500, 10))
+tool_bar = gui.Gui(win, tool_bar_layout, pos=(100, 200))
 
 ### main loop
 
