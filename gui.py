@@ -5,27 +5,32 @@ pysimplegui like gui manager for pygame
 from typing import List, Any, Tuple
 import pygame
 
-GUI_DEBUG_MODE = True
+GUI_DEBUG_MODE = False
+
+check_box_image = pygame.image.load(r'./Assets/checkbox.png')
+check_box_size = (13, 13)
+check_box_areas = [((check_box_size[0] * i, 0), check_box_size) for i in range(4)]
 
 class ColorPallete:
     def __init__(self):
-        self.text_color = (255,255,255)
-        self.button_back_color = (10,10,20)
-        self.button_focus_back_color = (80,80,90)
+        self.text_color = (213,213,213)
+        self.button_back_color = (93,93,93)
+        self.button_focus_back_color = (106,106,106)
         self.button_toggle_back_color = (60,60,70)
-        self.button_element_color = (100,100,70)
+        self.button_slider_color = (0,117,255)
+        self.button_slider_color2 = (75,160,255)
 
 class Gui:
     def __init__(self, win, layout, pos=(0,0), min_element_height=16, margin=3, inner_element_margin=6, font=None):
         self.win : pygame.Surface = win
         self.layout : List[List[Element]]= layout
-        self.default_font = pygame.font.SysFont('Calibri', 12)
+        self.default_font = pygame.font.SysFont('Calibri', 14)
         if font:
-            self.default_font = pygame.font.SysFont('Calibri', 12)
+            self.default_font = font
         self.color_pallete = ColorPallete()
         
-        self.focused_element = None
-        self.event = None
+        self.focused_element : Element = None
+        self.event : str = None
         
         self.min_element_height = min_element_height
         self.margin = margin
@@ -57,6 +62,7 @@ class Gui:
             for element in row:
                 self.elements.append(element)
                 element.set_gui(self)
+                element.parent = self
                 element.pos = (pos_x_acc, pos_y_acc)
                 element.initialize()
 
@@ -76,7 +82,7 @@ class Gui:
         if event.type == pygame.MOUSEBUTTONUP:
             if event.button == 1:
                 if self.focused_element:
-                    self.event = self.focused_element.key
+                    self.notify_event(self.focused_element.key)
                     self.focused_element.on_click()
                 self.mouse_hold = False
         elif event.type == pygame.MOUSEBUTTONDOWN:
@@ -113,16 +119,22 @@ class Gui:
             if value:
                 values[value[0]] = value[1]
         return event, values
+    
+    def notify_event(self, event):
+        ''' elements can notify internal events '''
+        self.event = event
 
 class Element:
-    def __init__(self):
+    def __init__(self, margin=None):
         self.pos = (0,0)
         self.size = (0,0)
         self.gui : Gui = None
+        self.parent = None
+        self.margin = margin
     
     def initialize(self):
         ''' initial position is given, calculate self size and other attributes '''
-        pass
+        self.margin = self.margin if self.margin is not None else self.gui.inner_element_margin
     
     def set_gui(self, gui):
         self.gui = gui
@@ -148,13 +160,18 @@ class Element:
         pass
 
 class Text(Element):
-    def __init__(self, text):
-        super().__init__()
+    def __init__(self, text, margin=None, width=None):
+        super().__init__(margin)
         self.text = text
+        self.initial_width = width if width is not None else 0
 
     def initialize(self):
-        self.text_surf = self.gui.default_font.render(self.text, True, self.gui.color_pallete.text_color)
-        self.size = (self.text_surf.get_width() + self.gui.inner_element_margin * 2, max(self.text_surf.get_height() + self.gui.inner_element_margin * 2, self.gui.min_element_height))
+        super().initialize()
+        bg_color = None
+        if GUI_DEBUG_MODE:
+            bg_color = (10,10,10)
+        self.text_surf = self.gui.default_font.render(self.text, True, self.gui.color_pallete.text_color, bg_color)
+        self.size = (max(self.text_surf.get_width() + self.margin * 2, self.initial_width), max(self.text_surf.get_height() + self.margin * 2, self.gui.min_element_height))
 
     def draw(self):
         super().draw()
@@ -162,15 +179,15 @@ class Text(Element):
         self.gui.win.blit(self.text_surf, (self.pos[0] + self.size[0] / 2 - self.text_surf.get_width() / 2, self.pos[1] + self.size[1] / 2 - self.text_surf.get_height() / 2))
 
 class Button(Element):
-    def __init__(self, text, key):
-        super().__init__()
+    def __init__(self, text, key, margin=None):
+        super().__init__(margin)
         self.key = key
         self.text = text
         
     def initialize(self):
         super().initialize()
         self.text_surf = self.gui.default_font.render(self.text, True, self.gui.color_pallete.text_color)
-        self.size = (self.text_surf.get_width() + self.gui.inner_element_margin * 2, max(self.text_surf.get_height() + self.gui.inner_element_margin * 2, self.gui.min_element_height))
+        self.size = (self.text_surf.get_width() + self.margin * 2, max(self.text_surf.get_height() + self.margin * 2, self.gui.min_element_height))
 
     def step(self):
         super().step()
@@ -196,45 +213,56 @@ class Button(Element):
         pygame.draw.rect(self.gui.win, color, (self.pos, self.size))
         self.gui.win.blit(self.text_surf, (self.pos[0] + self.size[0] / 2 - self.text_surf.get_width() / 2, self.pos[1] + self.size[1] / 2 - self.text_surf.get_height() / 2))
 
-class ButtonToggle(Button):
-    def __init__(self, text, key):
-        super().__init__(text, key)
+class CheckBox(Button):
+    def __init__(self, text, key, margin=None):
+        super().__init__(text, key, margin)
         self.selected = False
     
+    def initialize(self):
+        super().initialize()
+        self.text_surf = self.gui.default_font.render(self.text, True, self.gui.color_pallete.text_color)
+        self.size = (self.text_surf.get_width() + self.margin * 3 + check_box_size[0], max(self.text_surf.get_height() + self.margin * 2, self.gui.min_element_height, check_box_size[1]))
+
     def get_value(self) -> Tuple[Any, Any]:
         return (self.key, self.selected)
         
     def on_click(self):
         self.selected = not self.selected
-        
+    
     def draw(self):
-        super().draw()
+        Element.draw(self)
         pos = self.pos
-        if self is self.gui.focused_element:
-            pygame.draw.rect(self.gui.win, self.gui.color_pallete.button_focus_back_color, (self.pos, self.size))
-        elif not self.selected:
-            pygame.draw.rect(self.gui.win, self.gui.color_pallete.button_back_color, (self.pos, self.size))
-        else:
-            pygame.draw.rect(self.gui.win, self.gui.color_pallete.button_toggle_back_color, (self.pos, self.size))
-        self.gui.win.blit(self.text_surf, (self.pos[0] + self.size[0] / 2 - self.text_surf.get_width() / 2, self.pos[1] + self.size[1] / 2 - self.text_surf.get_height() / 2))
+        focus = self is self.gui.focused_element
+        selected = self.selected
+
+        if not selected and not focus:
+            area = check_box_areas[0]
+        if not selected and focus:
+            area = check_box_areas[1]
+        if selected and not focus:
+            area = check_box_areas[2]
+        if selected and focus:
+            area = check_box_areas[3]
+
+        self.gui.win.blit(check_box_image, (self.pos[0], self.pos[1] + self.size[1] / 2 - check_box_size[1] / 2), area)
+        self.gui.win.blit(self.text_surf, (self.pos[0] + check_box_size[0] + self.margin , self.pos[1] + self.size[1] / 2 - self.text_surf.get_height() / 2))
 
 class ButtonImage(Button):
-    def __init__(self, text, key, image_surf=None, image_path=None):
-        super().__init__(text, key)
+    def __init__(self, text, key, image_surf=None, image_path=None, margin=None):
+        super().__init__(text, key, margin)
         if image_surf:
             self.image_surf_original = image_surf
         elif image_path:
             self.image_surf_original = pygame.image.load(image_path)
-            
     
     def initialize(self):
         super().initialize()
-        size_y = max(self.text_surf.get_height() + self.gui.inner_element_margin * 2, self.gui.min_element_height)
+        size_y = max(self.text_surf.get_height() + self.margin * 2, self.gui.min_element_height)
         
         scale_factor = size_y / self.image_surf_original.get_height()
         
         self.image_surf = pygame.transform.smoothscale(self.image_surf_original, (scale_factor * self.image_surf_original.get_width(), scale_factor * self.image_surf_original.get_height()))
-        size_x = self.text_surf.get_width() + self.gui.inner_element_margin * 3 + self.image_surf.get_width()
+        size_x = self.text_surf.get_width() + self.margin * 3 + self.image_surf.get_width()
         self.size = (size_x, size_y)
         
     def draw(self):
@@ -244,14 +272,14 @@ class ButtonImage(Button):
             pygame.draw.rect(self.gui.win, self.gui.color_pallete.button_focus_back_color, (self.pos, self.size))
         else:
             pygame.draw.rect(self.gui.win, self.gui.color_pallete.button_back_color, (self.pos, self.size))
-        x = self.pos[0] + self.gui.inner_element_margin
+        x = self.pos[0] + self.margin
         self.gui.win.blit(self.image_surf, (x, self.pos[1]))
-        x += self.image_surf.get_width() + self.gui.inner_element_margin
+        x += self.image_surf.get_width() + self.margin
         self.gui.win.blit(self.text_surf, (x, self.pos[1]))
 
 class Slider(Element):
-    def __init__(self, key, min_value, max_value, initial_value, width=100):
-        super().__init__()
+    def __init__(self, key, min_value, max_value, initial_value, width=100, enable_events=False, margin=None):
+        super().__init__(margin)
         self.min_value = min_value
         self.max_value = max_value
         self.value = initial_value
@@ -259,6 +287,7 @@ class Slider(Element):
         self.key = key
         
         self.margin = 3
+        self.enable_events = enable_events
         
     def initialize(self):
         super().initialize()
@@ -298,6 +327,8 @@ class Slider(Element):
             value = 0.0
         
         self.value = (self.max_value - self.min_value) * value
+        if self.enable_events:
+            self.parent.notify_event(self.key)
         
     def draw(self):
         super().draw()
@@ -312,15 +343,18 @@ class Slider(Element):
         y = self.pos[1] + self.margin
         width = (self.size[0] - 2 * self.margin) * value
         height = self.size[1] - 2 * self.margin
-        pygame.draw.rect(self.gui.win, self.gui.color_pallete.button_toggle_back_color, ((x, y), (width, height)))
-        pygame.draw.line(self.gui.win, self.gui.color_pallete.button_element_color, (x + width, y), (x + width, y + height - 1), 2)
+        pygame.draw.rect(self.gui.win, self.gui.color_pallete.button_slider_color, ((x, y), (width, height)))
+        pygame.draw.line(self.gui.win, self.gui.color_pallete.button_slider_color2, (x + width, y), (x + width, y + height - 1), 2)
+
 
 class ElementComposition(Element):
-    def __init__(self, layout):
+    def __init__(self, layout, margin=None):
+        super().__init__(margin)
         self.layout : List[List[Element]] = layout
         self.elements : List[Element]= []
 
     def initialize(self):
+        super().initialize()
         self.calculate()
 
     def calculate(self):
@@ -336,6 +370,7 @@ class ElementComposition(Element):
 
                 self.elements.append(element)
                 element.set_gui(self.gui)
+                element.parent = self
                 element.pos = (pos_x_acc, pos_y_acc)
                 element.initialize()
 
@@ -363,6 +398,10 @@ class ElementComposition(Element):
     def get_value(self) -> Tuple[Any, Any]:
         pass
 
+    def notify_event(self, event : str):
+        pass
+
+
 if __name__ == '__main__':
     ''' example usage '''
     pygame.init()
@@ -382,9 +421,9 @@ if __name__ == '__main__':
     ]
 
     layout = [
-        [Button('press me', key='button1'), Button('me too', key='button2'), ButtonToggle('toggleMe', key='toggl1')],
+        [Button('press me', key='button1'), Button('me too', key='button2'), CheckBox('toggleMe', key='toggl1')],
         [Button('me three', key='button3'), Text('this is text'), ButtonImage('imImage', key='button_image1', image_surf=image)],
-        [Slider('slider1', 0, 100, 50), Slider('slider2', 0, 100, 50), Slider('slider3', 0, 100, 50), Slider('slider4', 0, 100, 50)],
+        [Slider('slider1', 0, 100, 50), Slider('slider2', 0, 100, 50, enable_events=True), Slider('slider3', 0, 100, 50), Slider('slider4', 0, 100, 50)],
         [ElementComposition(layout_comp), Button('press me', key='button4')],
         [Button('button after last', key='afterlast')]
     ]
@@ -402,7 +441,7 @@ if __name__ == '__main__':
         if keys[pygame.K_ESCAPE]:
             run = False
         
-        win.fill((100, 100, 100))
+        win.fill((37, 37, 37))
         
         gui.step()
         

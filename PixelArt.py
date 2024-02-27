@@ -100,7 +100,7 @@ class Editor:
             self.active_tool.click_hold()
 
     def draw(self):    
-        win.fill((0,0,0))
+        win.fill((37,37,37))
         self.viewport.draw()
         
         self.color_picker.draw()
