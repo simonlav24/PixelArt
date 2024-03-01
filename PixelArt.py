@@ -316,16 +316,21 @@ def handle_tool_bar_events(event, values, editor : Editor):
     elif event == 'tool_pencil':
         editor.switch_tool(TOOL_PENCIL)
     elif event == 'change_color':
-        layout = [[customGui.ColorPicker('color')]]
+        ''' click on color rectangle '''
+        layout = [[customGui.ColorPicker('color_picker', color=editor.current_color, enable_events=True)]]
         pos = values['gui']['change_color'].pos
         size = values['gui']['change_color'].size
         gui_color = gui.Gui(win, layout, pos=(pos[0] + size[0] + 4, pos[1] + size[1] + 4))
         editor.guis.append(gui_color)
+    elif event == 'color_picker':
+        ''' color is changed live in the color picker '''
+        color = values['color_picker']
+        editor.set_color(color)
     elif event == 'color_ok':
+        ''' click ok in color picker '''
         editor.guis.remove(values['gui'])
-        color = values['color']
-        editor.tool_bar['change_color'].update_color(color)
-        editor.current_color = color
+        color = values['color_picker']
+        editor.set_color(color)
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='PixelArt')

@@ -40,7 +40,8 @@ class ClickableRectangle(gui.Element):
         pygame.draw.rect(self.gui.win, self.color, (self.pos, self.size))
 
 class ColorPicker(gui.ElementComposition):
-    def __init__(self, key: str, color=(127, 127, 127)):
+    def __init__(self, key: str, color=(127, 127, 127), enable_events=False):
+        self.enable_events = enable_events
         self.r_key = f'{key}_r'
         self.g_key = f'{key}_g'
         self.b_key = f'{key}_b'
@@ -54,7 +55,6 @@ class ColorPicker(gui.ElementComposition):
         super().__init__(sliders_layout)
         self.key = key
         
-
     def get_value(self) -> Tuple[Any, Any]:
         values = {}
         for element in self.elements:
@@ -67,6 +67,8 @@ class ColorPicker(gui.ElementComposition):
     def notify_event(self, event: str):
         color = self.get_value()[1]
         self.color_rectangle.update_color(color)
+        if self.enable_events:
+            self.parent.notify_event(self.key)
 
 
 if __name__ == '__main__':
