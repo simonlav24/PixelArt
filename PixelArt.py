@@ -2,6 +2,7 @@ import pygame
 import argparse
 import PixelArtSg
 import gui
+import customGui
 from typing import Dict, List
 pygame.init()
 
@@ -40,8 +41,6 @@ class Editor:
     def __init__(self):
         self.viewport : ViewPort = ViewPort()
         self.viewport.parent = self
-        self.color_picker : ColorPicker = ColorPicker()
-        self.color_picker.parent = self
             
         self.previous_tool = TOOL_PENCIL
         self.tools : Dict[int, Tool] = {
@@ -55,6 +54,19 @@ class Editor:
             tool.parent = self
         self.selection = Selection()
         self.selection.parent = self
+
+        self.current_color = (255,255,255)
+
+        self.guis = []
+        # create tool bar
+        tool_bar_layout = [
+            [gui.ButtonImage('', key='tool_move', image_path=r'./Assets/move.png')],
+            [gui.ButtonImage('', key='tool_select', image_path=r'./Assets/selection.png')],
+            [gui.ButtonImage('', key='tool_pencil', image_path=r'./Assets/pencil.png')],
+            [customGui.ClickableRectangle('change_color', self.current_color)]
+        ]
+        self.tool_bar = gui.Gui(win, tool_bar_layout, pos=(100, 200))
+        self.guis.append(self.tool_bar)
 
     def create_new(self):
         new_surf = pygame.Surface((16, 16), pygame.SRCALPHA)
@@ -95,6 +107,10 @@ class Editor:
         self.previous_tool = self.active_tool.type
         self.active_tool = self.tools[type]
 
+    def set_color(self, color):
+        self.current_color = color
+        self.tool_bar['change_color'].update_color(color)
+
     def step(self):
         if click_hold:
             self.active_tool.click_hold()
@@ -103,7 +119,6 @@ class Editor:
         win.fill((37,37,37))
         self.viewport.draw()
         
-        self.color_picker.draw()
         self.selection.draw()
         self.active_tool.draw()
 
@@ -197,18 +212,6 @@ class ViewPort:
     def save(self, path):
         pygame.image.save(self.surf, path)
 
-class ColorPicker:
-    def __init__(self):
-        self.current_color = (255,255,255)
-        self.offset = (0,0)
-        self.rect_size = 100
-        self.parent : Editor = None
-    def draw(self):
-        # draw color at mouse
-        pygame.draw.rect(win, editor.viewport.get_at(pygame.mouse.get_pos()), (self.offset, (self.rect_size, self.rect_size)))
-        # draw active color
-        pygame.draw.rect(win, self.current_color, ((self.offset[0] + self.rect_size, self.offset[1]), (self.rect_size, self.rect_size)))
-
 class Selection:
     def __init__(self):
         self.active = False
@@ -241,7 +244,7 @@ class ToolPencil(Tool):
     def __init__(self):
         super().__init__(TOOL_PENCIL)
     def click_press(self):
-        color = self.parent.color_picker.current_color
+        color = self.parent.current_color
         self.parent.viewport.set_at(pygame.mouse.get_pos(), color)
     def click_hold(self):
         self.click_press()
@@ -250,7 +253,7 @@ class ToolEyeDrop(Tool):
     def __init__(self):
         super().__init__(TOOL_EYEDROP)
     def click_press(self):
-        self.parent.color_picker.current_color = self.parent.viewport.get_at(pygame.mouse.get_pos())
+        self.parent.set_color(self.parent.viewport.get_at(pygame.mouse.get_pos()))
 
 class ToolRectangleSelect(Tool):
     def __init__(self):
@@ -306,100 +309,117 @@ class EffectHue(Effect):
             area = self.editor.selection.rect
         apply_effect_hue(surf, self.hue_value, area)
 
-def handle_tool_bar_events(event, values, editor):
+def handle_tool_bar_events(event, values, editor : Editor):
     if event == 'tool_move':
         editor.switch_tool(TOOL_MOVE)
     elif event == 'tool_select':
         editor.switch_tool(TOOL_RECT_SELECT)
     elif event == 'tool_pencil':
         editor.switch_tool(TOOL_PENCIL)
+    elif event == 'change_color':
+        layout = [[customGui.ColorPicker('color')]]
+        pos = values['gui']['change_color'].pos
+        size = values['gui']['change_color'].size
+        gui_color = gui.Gui(win, layout, pos=(pos[0] + size[0] + 4, pos[1] + size[1] + 4))
+        editor.guis.append(gui_color)
+    elif event == 'color_ok':
+        editor.guis.remove(values['gui'])
+        color = values['color']
+        editor.tool_bar['change_color'].update_color(color)
+        editor.current_color = color
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='PixelArt')
     parser.add_argument('initial_file_path', default='', nargs='?')
     return parser.parse_args()
 
-args = parse_arguments()
+if __name__ == '__main__':
 
-editor = Editor()
+    args = parse_arguments()
 
-if args.initial_file_path != '':
-    image_path = args.initial_file_path
-    image = pygame.image.load(image_path)
-    editor.load_iamge(image_path)
-else:
-    editor.create_new()
+    editor = Editor()
+
+    if args.initial_file_path != '':
+        image_path = args.initial_file_path
+        image = pygame.image.load(image_path)
+        editor.load_iamge(image_path)
+    else:
+        editor.create_new()
 
 
-tool_bar_layout = [
-    [gui.ButtonImage('', key='tool_move', image_path=r'./Assets/move.png')],
-    [gui.ButtonImage('', key='tool_select', image_path=r'./Assets/selection.png')],
-    [gui.ButtonImage('', key='tool_pencil', image_path=r'./Assets/pencil.png')],
-]
-tool_bar = gui.Gui(win, tool_bar_layout, pos=(100, 200))
+    
 
-### main loop
+    ### main loop
 
-click_hold = False
-alt_hold = False
-run = True
-while run:
-    for event in pygame.event.get():
-        tool_bar.handle_event(event)
-        if event.type == pygame.QUIT:
+    click_hold = False
+    alt_hold = False
+    run = True
+    while run:
+        for event in pygame.event.get():
+            for g in editor.guis:
+                g.handle_event(event)
+            if event.type == pygame.QUIT:
+                run = False
+            if event.type == pygame.DROPFILE:
+                editor.load_iamge(event.file)
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    editor.active_tool.click_press()
+                    click_hold = True
+                if event.button == 5:
+                    if pygame.key.get_mods() & pygame.KMOD_ALT:
+                        editor.viewport.zoom_in(0.9)
+                if event.button == 4:
+                    if pygame.key.get_mods() & pygame.KMOD_ALT:
+                        editor.viewport.zoom_in(1.1)
+            if event.type == pygame.MOUSEBUTTONUP:
+                if event.button == 1:
+                    editor.active_tool.click_release()
+                    click_hold = False
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_t:
+                    pass
+                if event.key == pygame.K_h:
+                    hue = EffectHue(editor, 10)
+                    hue.apply()
+                if event.key == pygame.K_v:
+                    editor.switch_tool(TOOL_MOVE)
+                if event.key == pygame.K_p:
+                    editor.switch_tool(TOOL_PENCIL)
+                if event.key == pygame.K_s:
+                    editor.switch_tool(TOOL_RECT_SELECT)
+                # if event.key == pygame.K_c:
+                #     color = PixelArtSg.get_color(editor.color_picker.current_color)
+                #     editor.color_picker.current_color = color
+                if event.key in [pygame.K_LALT, pygame.K_RALT]:
+                    editor.switch_tool(TOOL_EYEDROP)
+                if event.key == pygame.K_s and pygame.key.get_mods() & pygame.KMOD_CTRL:
+                    editor.viewport.save('output.png')
+                    print(f'saved output.png')
+                    
+            if event.type == pygame.KEYUP:
+                if event.key in [pygame.K_LALT, pygame.K_RALT]:
+                    editor.switch_tool_previous()
+
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_ESCAPE]:
             run = False
-        if event.type == pygame.DROPFILE:
-            editor.load_iamge(event.file)
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1:
-                editor.active_tool.click_press()
-                click_hold = True
-            if event.button == 5:
-                if pygame.key.get_mods() & pygame.KMOD_ALT:
-                    editor.viewport.zoom_in(0.9)
-            if event.button == 4:
-                if pygame.key.get_mods() & pygame.KMOD_ALT:
-                    editor.viewport.zoom_in(1.1)
-        if event.type == pygame.MOUSEBUTTONUP:
-            if event.button == 1:
-                editor.active_tool.click_release()
-                click_hold = False
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_t:
-                pass
-            if event.key == pygame.K_h:
-                hue = EffectHue(editor, 10)
-                hue.apply()
-            if event.key == pygame.K_v:
-                editor.switch_tool(TOOL_MOVE)
-            if event.key == pygame.K_p:
-                editor.switch_tool(TOOL_PENCIL)
-            if event.key == pygame.K_s:
-                editor.switch_tool(TOOL_RECT_SELECT)
-            if event.key == pygame.K_c:
-                color = PixelArtSg.get_color(editor.color_picker.current_color)
-                editor.color_picker.current_color = color
-            if event.key in [pygame.K_LALT, pygame.K_RALT]:
-                editor.switch_tool(TOOL_EYEDROP)
-            if event.key == pygame.K_s and pygame.key.get_mods() & pygame.KMOD_CTRL:
-                editor.viewport.save('output.png')
-                print(f'saved output.png')
-                
-        if event.type == pygame.KEYUP:
-            if event.key in [pygame.K_LALT, pygame.K_RALT]:
-                editor.switch_tool_previous()
+        
+        # step
+        editor.step()
 
-    keys = pygame.key.get_pressed()
-    if keys[pygame.K_ESCAPE]:
-        run = False
-    
-    editor.step()
-    tool_bar.step()
-    event, values = tool_bar.read()
-    if event:
-        handle_tool_bar_events(event, values, editor)
-    
-    editor.draw()
-    tool_bar.draw()
-    
-    pygame.display.update()
+        for g in editor.guis:
+            g.step()
+        for g in editor.guis:
+            event, values = g.read()
+            if event:
+                print('[EVENT]', event, values)
+                handle_tool_bar_events(event, values, editor)
+        
+        # draw
+        editor.draw()
+
+        for g in editor.guis:
+            g.draw()
+        
+        pygame.display.update()

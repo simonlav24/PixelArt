@@ -2,7 +2,7 @@
 pysimplegui like gui manager for pygame
 '''
 
-from typing import List, Any, Tuple
+from typing import List, Any, Tuple, Dict
 import pygame
 
 GUI_DEBUG_MODE = False
@@ -10,6 +10,12 @@ GUI_DEBUG_MODE = False
 check_box_image = pygame.image.load(r'./Assets/checkbox.png')
 check_box_size = (13, 13)
 check_box_areas = [((check_box_size[0] * i, 0), check_box_size) for i in range(4)]
+
+def point_in_rect(pos, rect):
+    rect_pos = rect[0]
+    rect_size = rect[1]
+    return pos[0] > rect_pos[0] and pos[0] < rect_pos[0] + rect_size[0] and\
+            pos[1] > rect_pos[1] and pos[1] < rect_pos[1] + rect_size[1]
 
 class ColorPallete:
     def __init__(self):
@@ -37,6 +43,7 @@ class Gui:
         self.inner_element_margin = inner_element_margin
         
         self.elements : List[Element] = []
+        self.dict : Dict[str : Element] = {}
         self.pos = pos
         
         self.calculate()
@@ -62,6 +69,8 @@ class Gui:
             for element in row:
                 self.elements.append(element)
                 element.set_gui(self)
+                if element.key:
+                    self.dict[element.key] = element
                 element.parent = self
                 element.pos = (pos_x_acc, pos_y_acc)
                 element.initialize()
@@ -113,7 +122,7 @@ class Gui:
         
         event = self.event
         self.event = None
-        values = {}
+        values = {'gui': self}
         for element in self.elements:
             value = element.get_value()
             if value:
@@ -124,13 +133,17 @@ class Gui:
         ''' elements can notify internal events '''
         self.event = event
 
+    def __getitem__(self, key : str) -> 'Element':
+        return self.dict[key]
+
 class Element:
     def __init__(self, margin=None):
         self.pos = (0,0)
         self.size = (0,0)
         self.gui : Gui = None
-        self.parent = None
+        self.parent : Element | Gui = None
         self.margin = margin
+        self.key = None
     
     def initialize(self):
         ''' initial position is given, calculate self size and other attributes '''
@@ -194,13 +207,8 @@ class Button(Element):
         if self.gui.mouse_hold:
             return
         mouse_pos = pygame.mouse.get_pos()
-        pos = self.pos
-        if (
-            mouse_pos[0] > pos[0]
-            and mouse_pos[0] < pos[0] + self.size[0]
-            and mouse_pos[1] > pos[1]
-            and mouse_pos[1] < pos[1] + self.size[1]
-        ):
+
+        if point_in_rect(mouse_pos, (self.pos, self.size)):
             self.gui.focused_element = self
 
     def draw(self):
@@ -301,13 +309,7 @@ class Slider(Element):
         if self.gui.mouse_hold and self is not self.gui.focused_element:
             return 
         mouse_pos = pygame.mouse.get_pos()
-        pos = self.pos
-        if (
-            mouse_pos[0] > pos[0]
-            and mouse_pos[0] < pos[0] + self.size[0]
-            and mouse_pos[1] > pos[1]
-            and mouse_pos[1] < pos[1] + self.size[1]
-        ):
+        if point_in_rect(mouse_pos, (self.pos, self.size)):
             self.gui.focused_element = self
 
     def on_hold(self):
@@ -399,8 +401,13 @@ class ElementComposition(Element):
         pass
 
     def notify_event(self, event : str):
+        ''' internal elements can notify the parent of events '''
         pass
 
+class Window(ElementComposition):
+    def __init__(self, layout, pos, margin=None):
+        super().__init__(layout, margin)
+    
 
 if __name__ == '__main__':
     ''' example usage '''
