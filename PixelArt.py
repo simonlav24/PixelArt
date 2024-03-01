@@ -1,6 +1,5 @@
 import pygame
 import argparse
-import PixelArtSg
 import gui
 import customGui
 from typing import Dict, List
