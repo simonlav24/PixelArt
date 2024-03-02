@@ -457,6 +457,8 @@ class ButtonToggleContainer(ElementComposition):
         else:
             color = self.gui.color_pallete.button_back_color
         pygame.draw.rect(self.gui.win, color, (self.pos, self.size))
+        if self.selected:
+            pygame.draw.rect(self.gui.win, self.gui.color_pallete.button_slider_color, (self.pos, (2, self.size[1])))
         for element in self.elements:
             element.draw()
 

@@ -35,12 +35,12 @@ class Editor:
 
         self.current_color = (255,255,255)
 
-        self.guis = []
+        self.guis: List[gui.Gui] = []
         # create tool bar
         tools_radio_layout = [
-            [gui.ButtonToggleContainer('tool_move', [[gui.Surf(pygame.image.load(r'./Assets/move.png'), 0.1)]])],
-            [gui.ButtonToggleContainer('tool_select', [[gui.Surf(pygame.image.load(r'./Assets/selection.png'), 0.1)]])],
-            [gui.ButtonToggleContainer('tool_pencil', [[gui.Surf(pygame.image.load(r'./Assets/pencil.png'), 0.1)]])],
+            [gui.ButtonToggleContainer('tool_move', [[gui.Surf(pygame.image.load(r'./Assets/move.png'), 0.08)]])],
+            [gui.ButtonToggleContainer('tool_select', [[gui.Surf(pygame.image.load(r'./Assets/selection.png'), 0.08)]])],
+            [gui.ButtonToggleContainer('tool_pencil', [[gui.Surf(pygame.image.load(r'./Assets/pencil.png'), 0.08)]])],
         ]
         tool_bar_layout = [
             [gui.RadioButtonContainer(tools_radio_layout)],
@@ -114,13 +114,50 @@ class Editor:
     def step(self):
         if self.click_hold:
             self.active_tool.click_hold()
+        
+        # step guis
+        for g in self.guis:
+            g.step()
+        for g in self.guis:
+            event, values = g.read()
+            if event:
+                print('[EVENT]', event, values)
+                self.handle_tool_bar_events(event, values)
 
-    def draw(self):    
+    def draw(self):
         self.win.fill((37,37,37))
         self.viewport.draw()
         
         self.selection.draw()
         self.active_tool.draw()
+
+        # guis step
+        for g in self.guis:
+            g.draw()
+    
+    def handle_tool_bar_events(self, event, values):
+        if event == 'tool_move':
+            self.switch_tool(TOOL_MOVE)
+        elif event == 'tool_select':
+            self.switch_tool(TOOL_RECT_SELECT)
+        elif event == 'tool_pencil':
+            self.switch_tool(TOOL_PENCIL)
+        elif event == 'change_color':
+            ''' click on color rectangle '''
+            layout = [[customGui.ColorPicker('color_picker', color=self.current_color, enable_events=True)]]
+            pos = values['gui']['change_color'].pos
+            size = values['gui']['change_color'].size
+            gui_color = gui.Gui(self.win, layout, pos=(pos[0] + size[0] + 4, pos[1] + size[1] + 4))
+            self.guis.append(gui_color)
+        elif event == 'color_picker':
+            ''' color is changed live in the color picker '''
+            color = values['color_picker']
+            self.set_color(color)
+        elif event == 'color_ok':
+            ''' click ok in color picker '''
+            self.guis.remove(values['gui'])
+            color = values['color_picker']
+            self.set_color(color)
 
 class ViewPort:
     def __init__(self):

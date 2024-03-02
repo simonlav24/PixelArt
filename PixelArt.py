@@ -1,40 +1,10 @@
 import pygame
 import argparse
-import gui
-import customGui
 from typing import Dict, List
 
 from editor import *
 from tools import *
 from effects import *
-
-
-### setup
-
-
-def handle_tool_bar_events(event, values, editor : Editor):
-    if event == 'tool_move':
-        editor.switch_tool(TOOL_MOVE)
-    elif event == 'tool_select':
-        editor.switch_tool(TOOL_RECT_SELECT)
-    elif event == 'tool_pencil':
-        editor.switch_tool(TOOL_PENCIL)
-    elif event == 'change_color':
-        ''' click on color rectangle '''
-        layout = [[customGui.ColorPicker('color_picker', color=editor.current_color, enable_events=True)]]
-        pos = values['gui']['change_color'].pos
-        size = values['gui']['change_color'].size
-        gui_color = gui.Gui(win, layout, pos=(pos[0] + size[0] + 4, pos[1] + size[1] + 4))
-        editor.guis.append(gui_color)
-    elif event == 'color_picker':
-        ''' color is changed live in the color picker '''
-        color = values['color_picker']
-        editor.set_color(color)
-    elif event == 'color_ok':
-        ''' click ok in color picker '''
-        editor.guis.remove(values['gui'])
-        color = values['color_picker']
-        editor.set_color(color)
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='PixelArt')
@@ -61,9 +31,6 @@ if __name__ == '__main__':
         editor.create_new()
 
     ### main loop
-
-    click_hold = False
-    alt_hold = False
     run = True
     while run:
         for event in pygame.event.get():
@@ -105,19 +72,10 @@ if __name__ == '__main__':
         
         # step
         editor.step()
-
-        for g in editor.guis:
-            g.step()
-        for g in editor.guis:
-            event, values = g.read()
-            if event:
-                print('[EVENT]', event, values)
-                handle_tool_bar_events(event, values, editor)
         
         # draw
         editor.draw()
-
-        for g in editor.guis:
-            g.draw()
         
         pygame.display.update()
+
+    pygame.quit()

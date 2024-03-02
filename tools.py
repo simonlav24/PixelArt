@@ -10,7 +10,7 @@ class Selection:
     def __init__(self):
         self.active = False
         self.rect = None
-        self.parent = None
+        self.parent: editor.Editor = None
     def set_rect(self, rect):
         self.rect = rect
     def draw(self):

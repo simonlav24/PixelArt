@@ -14,8 +14,8 @@ def apply_effect_hue(surf: pygame.Surface, amount, area=None):
             surf.set_at((x, y), color)
 
 class Effect:
-    def __init__(self, editor):
-        self.editor : editor.Editor = editor
+    def __init__(self, effective_editor):
+        self.editor : editor.Editor = effective_editor
     def apply(self):
         pass
 
