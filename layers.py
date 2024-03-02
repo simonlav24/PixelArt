@@ -3,6 +3,8 @@ from typing import List
 
 import gui
 
+SWITCH_LAYER = 'switch_layer'
+
 class Layer:
     def __init__(self, name=None):
         self.pos = (0,0)
@@ -10,10 +12,18 @@ class Layer:
         self.name = 'new layer'
         if name:
             self.name = name
+
     def get_surf(self):
         return self.surf
+
     def get_pos(self):
         return self.pos
+
+    def serialize(self) -> str:
+        pass
+
+    def deserialize(self, input):
+        pass
     
 class LayerBar:
     def __init__(self, pos, win: pygame.Surface, parent):
@@ -24,11 +34,15 @@ class LayerBar:
     def update_layers(self, layers: List[Layer]):
         radio_layout = []
 
+        first_selected = False
         for layer in layers:
             layout_button = [
                 [gui.Surf(layer.surf, fixed_size=(70,70)), gui.Text(layer.name)],
             ]
-            layer_button = gui.ButtonToggleContainer(f'layer_{layer.name}' ,layout_button)
+            layer_button = gui.ButtonToggleContainer(f'{SWITCH_LAYER}_{layer.name}' ,layout_button)
+            if not first_selected:
+                layer_button.selected = True
+                first_selected = True
             radio_layout.append([layer_button])
 
         layout = [

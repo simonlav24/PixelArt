@@ -9,9 +9,9 @@ class ToolBar:
         self.pos = pos
 
         tools_radio_layout = [
-            [gui.ButtonToggleContainer('tool_move', [[gui.Surf(pygame.image.load(r'./Assets/move.png'), 0.08)]])],
-            [gui.ButtonToggleContainer('tool_select', [[gui.Surf(pygame.image.load(r'./Assets/selection.png'), 0.08)]])],
-            [gui.ButtonToggleContainer('tool_pencil', [[gui.Surf(pygame.image.load(r'./Assets/pencil.png'), 0.08)]])],
+            [gui.ButtonToggleContainer('tool_move',   [[gui.Surf(pygame.image.load(r'./Assets/move.png'),      0.08, smooth=True)]])],
+            [gui.ButtonToggleContainer('tool_select', [[gui.Surf(pygame.image.load(r'./Assets/selection.png'), 0.08, smooth=True)]])],
+            [gui.ButtonToggleContainer('tool_pencil', [[gui.Surf(pygame.image.load(r'./Assets/pencil.png'),    0.08, smooth=True)]])],
         ]
         tool_bar_layout = [
             [gui.RadioButtonContainer(tools_radio_layout)],

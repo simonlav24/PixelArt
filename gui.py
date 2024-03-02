@@ -201,12 +201,18 @@ class Text(Element):
         self.gui.win.blit(self.text_surf, (self.pos[0] + self.size[0] / 2 - self.text_surf.get_width() / 2, self.pos[1] + self.size[1] / 2 - self.text_surf.get_height() / 2))
 
 class Surf(Element):
-    def __init__(self, surf: pygame.Surface, scale: float=1.0, fixed_size=None, margin=None):
+    def __init__(self, surf: pygame.Surface, scale: float=1.0, fixed_size=None, margin=None, smooth=False):
         super().__init__(margin)
-        self.surf = pygame.transform.smoothscale_by(surf, scale)
+        if smooth:
+            self.surf = pygame.transform.smoothscale_by(surf, scale)
+        else:
+            self.surf = pygame.transform.scale_by(surf, scale)
 
         if fixed_size:
-            self.surf = pygame.transform.smoothscale(surf, fixed_size)
+            if smooth:
+                self.surf = pygame.transform.smoothscale(surf, fixed_size)
+            else:
+                self.surf = pygame.transform.scale(surf, fixed_size)
 
     def initialize(self):
         super().initialize()

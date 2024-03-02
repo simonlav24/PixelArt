@@ -1,8 +1,8 @@
 
 import pygame
-from typing import Dict, List
-import gui
-import customGui
+from typing import Dict, List, Any
+import utils
+
 from tools import *
 from toolBar import *
 from layers import *
@@ -132,13 +132,35 @@ class Editor:
             color = values['color_picker']
             self.set_color(color)
 
+    def handle_layer_bar_events(self, event, values):
+        if event == 'add_layer':
+            ''' add new layer '''
+            viewport_size = self.viewport.get_size()
+            new_surf = pygame.Surface(viewport_size, pygame.SRCALPHA)
+
+            new_layer_name = 'new layer'
+            
+            layer_names = [l.name for l in self.viewport.layers]
+            while new_layer_name in layer_names:
+                new_layer_name = utils.increment_ending_number(new_layer_name)
+
+            layer = Layer(name=new_layer_name)
+            layer.surf = new_surf
+
+            self.viewport.add_layer(layer)
+        elif SWITCH_LAYER in event:
+            layer_name = event.replace(f'{SWITCH_LAYER}_', '')
+            self.viewport.switch_layer(layer_name)
+
     def on_property_changed(self, property_name: str):
         if property_name == 'layers':
             self.layer_bar.update_layers(self.viewport.layers)
+            
 
     def handle_internal_event(self, event, values):
         print('[Internal Event]', event, values)
         self.handle_tool_bar_events(event, values)
+        self.handle_layer_bar_events(event, values)
 
 class ViewPort:
     def __init__(self):
@@ -154,8 +176,14 @@ class ViewPort:
 
     def add_layer(self, layer):
         self.layers.append(layer)
-        self.active_layer = layer
+        if len(self.layers) == 1:
+            self.active_layer = layer
         self.parent.on_property_changed('layers')
+
+    def switch_layer(self, name):
+        print(f'switching to layer {name}')
+        layer = [l for l in self.layers if l.name == name][0]
+        self.active_layer = layer
 
     def zoom_in(self, value):
         self.zoom *= value
@@ -178,6 +206,9 @@ class ViewPort:
     def auto_zoom(self):
         self.zoom = 500 / self.surf.get_width()
         self.create_background_surf()
+
+    def get_size(self) -> Any:
+        return self.surf.get_size()
 
     def set_size(self, size):
         self.surf = pygame.Surface(size, pygame.SRCALPHA)
