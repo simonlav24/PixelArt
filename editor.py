@@ -1,25 +1,19 @@
 
 import pygame
-from tools import *
 from typing import Dict, List
 import gui
 import customGui
+from tools import *
+from toolBar import *
+from layers import *
 
-class Layer:
-    def __init__(self):
-        self.pos = (0,0)
-        self.surf = None
-    def get_surf(self):
-        return self.surf
-    def get_pos(self):
-        return self.pos
 
 class Editor:
-    def __init__(self, win):
+    def __init__(self, win: pygame.Surface):
         self.win = win
         self.viewport : ViewPort = ViewPort()
         self.viewport.parent = self
-            
+
         self.previous_tool = TOOL_PENCIL
         self.tools : Dict[int, Tool] = {
             TOOL_PENCIL: ToolPencil(),
@@ -35,24 +29,20 @@ class Editor:
 
         self.current_color = (255,255,255)
 
-        self.guis: List[gui.Gui] = []
         # create tool bar
-        tools_radio_layout = [
-            [gui.ButtonToggleContainer('tool_move', [[gui.Surf(pygame.image.load(r'./Assets/move.png'), 0.08)]])],
-            [gui.ButtonToggleContainer('tool_select', [[gui.Surf(pygame.image.load(r'./Assets/selection.png'), 0.08)]])],
-            [gui.ButtonToggleContainer('tool_pencil', [[gui.Surf(pygame.image.load(r'./Assets/pencil.png'), 0.08)]])],
-        ]
-        tool_bar_layout = [
-            [gui.RadioButtonContainer(tools_radio_layout)],
-            [customGui.ClickableRectangle('change_color', self.current_color)]
-        ]
-        self.tool_bar = gui.Gui(self.win, tool_bar_layout, pos=(100, 200))
-        self.guis.append(self.tool_bar)
+        self.tool_bar = ToolBar((100, 200), self.win, self)
+
+        # create layer bar
+        self.layer_bar = LayerBar((self.win.get_width() - 200, 100), self.win, self)
+        self.layer_bar.update_layers(self.viewport.layers)
 
         # event vars
         self.click_hold = False
 
     def handle_events(self, event):
+        # gui handle events
+        self.tool_bar.handle_event(event)
+        self.layer_bar.handle_event(event)
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
                 self.active_tool.click_press()
@@ -109,20 +99,14 @@ class Editor:
 
     def set_color(self, color):
         self.current_color = color
-        self.tool_bar['change_color'].update_color(color)
+        self.tool_bar.update_color(color)
 
     def step(self):
         if self.click_hold:
             self.active_tool.click_hold()
         
-        # step guis
-        for g in self.guis:
-            g.step()
-        for g in self.guis:
-            event, values = g.read()
-            if event:
-                print('[EVENT]', event, values)
-                self.handle_tool_bar_events(event, values)
+        self.tool_bar.step()
+        self.layer_bar.step()
 
     def draw(self):
         self.win.fill((37,37,37))
@@ -131,9 +115,8 @@ class Editor:
         self.selection.draw()
         self.active_tool.draw()
 
-        # guis step
-        for g in self.guis:
-            g.draw()
+        self.tool_bar.draw()
+        self.layer_bar.draw()
     
     def handle_tool_bar_events(self, event, values):
         if event == 'tool_move':
@@ -143,21 +126,19 @@ class Editor:
         elif event == 'tool_pencil':
             self.switch_tool(TOOL_PENCIL)
         elif event == 'change_color':
-            ''' click on color rectangle '''
-            layout = [[customGui.ColorPicker('color_picker', color=self.current_color, enable_events=True)]]
-            pos = values['gui']['change_color'].pos
-            size = values['gui']['change_color'].size
-            gui_color = gui.Gui(self.win, layout, pos=(pos[0] + size[0] + 4, pos[1] + size[1] + 4))
-            self.guis.append(gui_color)
+            pass
         elif event == 'color_picker':
             ''' color is changed live in the color picker '''
             color = values['color_picker']
             self.set_color(color)
-        elif event == 'color_ok':
-            ''' click ok in color picker '''
-            self.guis.remove(values['gui'])
-            color = values['color_picker']
-            self.set_color(color)
+
+    def on_property_changed(self, property_name: str):
+        if property_name == 'layers':
+            self.layer_bar.update_layers(self.viewport.layers)
+
+    def handle_internal_event(self, event, values):
+        print('[Internal Event]', event, values)
+        self.handle_tool_bar_events(event, values)
 
 class ViewPort:
     def __init__(self):
@@ -174,6 +155,7 @@ class ViewPort:
     def add_layer(self, layer):
         self.layers.append(layer)
         self.active_layer = layer
+        self.parent.on_property_changed('layers')
 
     def zoom_in(self, value):
         self.zoom *= value

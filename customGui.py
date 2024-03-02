@@ -72,7 +72,6 @@ class ColorPicker(gui.ElementComposition):
             self.parent.notify_event(self.key)
 
 
-
 if __name__ == '__main__':
     ''' example usage '''
     pygame.init()
@@ -125,7 +124,7 @@ if __name__ == '__main__':
                     layout = [[ColorPicker('color')]]
                     pos = gui_test['get_color'].pos
                     size = gui_test['get_color'].size
-                    gui_color = gui.Gui(win, layout, pos=(pos[0] + size[0] + 4, pos[1] + size[1] + 4))
+                    gui_color = gui.Gui(win, layout, pos=(pos[0] + size[0] + 4, pos[1] + size[1] + 4), name='color picker')
                     guis.append(gui_color)
                 elif event == 'color_ok':
                     guis.remove(g)

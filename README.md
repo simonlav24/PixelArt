@@ -5,9 +5,12 @@ PixelArt editor
 ### Todo
 
 * [ ] undo-redo mechanism
-* [ ] hand tool
-* [ ] selection tool
+* [ ] tools
+  * [ ] hand tool
+  * [ ] selection tool
 * [ ] color picker
+  * [X] rgb
+  * [ ] hsl
 * [ ] effects menu
-  * [ ] hue effect
+  * [X] hue effect
 * [ ] layer bar

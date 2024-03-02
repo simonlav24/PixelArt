@@ -27,7 +27,10 @@ class ColorPallete:
         self.button_slider_color2 = (75,160,255)
 
 class Gui:
-    def __init__(self, win, layout, pos=(0,0), min_element_height=16, margin=3, inner_element_margin=6, font=None):
+    def __init__(self, win, layout, pos=(0,0), name=None, min_element_height=16, margin=3, inner_element_margin=6, font=None):
+        self.name = 'Gui'
+        if name:
+            self.name = name
         self.win : pygame.Surface = win
         self.layout : List[List[Element]]= layout
         self.default_font = pygame.font.SysFont('Calibri', 14)
@@ -49,6 +52,12 @@ class Gui:
         self.calculate()
         
         self.mouse_hold = False
+
+    def __str__(self):
+        return f'<Gui: {self.name}>'
+    
+    def __repr__(self):
+        return str(self)
 
     def set_pos(self, pos):
         self.pos = pos
@@ -192,9 +201,12 @@ class Text(Element):
         self.gui.win.blit(self.text_surf, (self.pos[0] + self.size[0] / 2 - self.text_surf.get_width() / 2, self.pos[1] + self.size[1] / 2 - self.text_surf.get_height() / 2))
 
 class Surf(Element):
-    def __init__(self, surf: pygame.Surface, scale: float=1.0, margin=None):
+    def __init__(self, surf: pygame.Surface, scale: float=1.0, fixed_size=None, margin=None):
         super().__init__(margin)
         self.surf = pygame.transform.smoothscale_by(surf, scale)
+
+        if fixed_size:
+            self.surf = pygame.transform.smoothscale(surf, fixed_size)
 
     def initialize(self):
         super().initialize()

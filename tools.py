@@ -1,5 +1,7 @@
 import pygame
-import editor
+import gui
+import customGui
+# import editor
 
 TOOL_MOVE = 0
 TOOL_PENCIL = 1

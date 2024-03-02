@@ -1,6 +1,5 @@
 import pygame
 import argparse
-from typing import Dict, List
 
 from editor import *
 from tools import *
@@ -34,9 +33,6 @@ if __name__ == '__main__':
     run = True
     while run:
         for event in pygame.event.get():
-            # gui handle events
-            for g in editor.guis:
-                g.handle_event(event)
             # editor handle events
             editor.handle_events(event)
 
