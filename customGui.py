@@ -72,6 +72,7 @@ class ColorPicker(gui.ElementComposition):
             self.parent.notify_event(self.key)
 
 
+
 if __name__ == '__main__':
     ''' example usage '''
     pygame.init()

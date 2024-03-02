@@ -58,10 +58,13 @@ class Editor:
 
         self.guis = []
         # create tool bar
+        tools_radio_layout = [
+            [gui.ButtonToggleContainer('tool_move', [[gui.Surf(pygame.image.load(r'./Assets/move.png'), 0.1)]])],
+            [gui.ButtonToggleContainer('tool_select', [[gui.Surf(pygame.image.load(r'./Assets/selection.png'), 0.1)]])],
+            [gui.ButtonToggleContainer('tool_pencil', [[gui.Surf(pygame.image.load(r'./Assets/pencil.png'), 0.1)]])],
+        ]
         tool_bar_layout = [
-            [gui.ButtonImage('', key='tool_move', image_path=r'./Assets/move.png')],
-            [gui.ButtonImage('', key='tool_select', image_path=r'./Assets/selection.png')],
-            [gui.ButtonImage('', key='tool_pencil', image_path=r'./Assets/pencil.png')],
+            [gui.RadioButtonContainer(tools_radio_layout)],
             [customGui.ClickableRectangle('change_color', self.current_color)]
         ]
         self.tool_bar = gui.Gui(win, tool_bar_layout, pos=(100, 200))
@@ -139,17 +142,21 @@ class ViewPort:
 
     def zoom_in(self, value):
         self.zoom *= value
+        self.create_background_surf()
     
     def create_background_surf(self):
         size = (int(self.surf.get_width() * self.zoom), int(self.surf.get_height() * self.zoom))
         self.background = pygame.Surface(size)
         bg_rect_size = 20
         colors = [(75, 75, 75), (85, 85, 85)]
-        c = 0
+        row_start_c = 0
+        c = row_start_c
         for y in range(0, size[1], bg_rect_size):
             for x in range(0, size[0], bg_rect_size):
                 pygame.draw.rect(self.background, colors[c], ((x, y), (bg_rect_size, bg_rect_size)))
                 c = (c + 1) % 2
+            row_start_c = (row_start_c + 1) % 2
+            c = row_start_c
 
     def auto_zoom(self):
         self.zoom = 500 / self.surf.get_width()

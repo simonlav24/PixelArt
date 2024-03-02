@@ -189,8 +189,20 @@ class Text(Element):
 
     def draw(self):
         super().draw()
-        pos = self.pos
         self.gui.win.blit(self.text_surf, (self.pos[0] + self.size[0] / 2 - self.text_surf.get_width() / 2, self.pos[1] + self.size[1] / 2 - self.text_surf.get_height() / 2))
+
+class Surf(Element):
+    def __init__(self, surf: pygame.Surface, scale: float=1.0, margin=None):
+        super().__init__(margin)
+        self.surf = pygame.transform.smoothscale_by(surf, scale)
+
+    def initialize(self):
+        super().initialize()
+        self.size = self.surf.get_size()
+    
+    def draw(self):
+        super().draw()
+        self.gui.win.blit(self.surf, self.pos)
 
 class Button(Element):
     def __init__(self, text, key, margin=None):
@@ -257,36 +269,6 @@ class CheckBox(Button):
         self.gui.win.blit(check_box_image, (self.pos[0], self.pos[1] + self.size[1] / 2 - check_box_size[1] / 2), area)
         self.gui.win.blit(self.text_surf, (self.pos[0] + check_box_size[0] + self.margin , self.pos[1] + self.size[1] / 2 - self.text_surf.get_height() / 2))
 
-class ButtonImage(Button):
-    def __init__(self, text, key, image_surf=None, image_path=None, margin=None):
-        super().__init__(text, key, margin)
-        if image_surf:
-            self.image_surf_original = image_surf
-        elif image_path:
-            self.image_surf_original = pygame.image.load(image_path)
-    
-    def initialize(self):
-        super().initialize()
-        size_y = max(self.text_surf.get_height() + self.margin * 2, self.gui.min_element_height)
-        
-        scale_factor = size_y / self.image_surf_original.get_height()
-        
-        self.image_surf = pygame.transform.smoothscale(self.image_surf_original, (scale_factor * self.image_surf_original.get_width(), scale_factor * self.image_surf_original.get_height()))
-        size_x = self.text_surf.get_width() + self.margin * 3 + self.image_surf.get_width()
-        self.size = (size_x, size_y)
-        
-    def draw(self):
-        super().draw()
-        pos = self.pos
-        if self is self.gui.focused_element:
-            pygame.draw.rect(self.gui.win, self.gui.color_pallete.button_focus_back_color, (self.pos, self.size))
-        else:
-            pygame.draw.rect(self.gui.win, self.gui.color_pallete.button_back_color, (self.pos, self.size))
-        x = self.pos[0] + self.margin
-        self.gui.win.blit(self.image_surf, (x, self.pos[1]))
-        x += self.image_surf.get_width() + self.margin
-        self.gui.win.blit(self.text_surf, (x, self.pos[1]))
-
 class Slider(Element):
     def __init__(self, key, min_value, max_value, initial_value, width=100, enable_events=False, margin=None):
         super().__init__(margin)
@@ -349,7 +331,6 @@ class Slider(Element):
         height = self.size[1] - 2 * self.margin
         pygame.draw.rect(self.gui.win, self.gui.color_pallete.button_slider_color, ((x, y), (width, height)))
         pygame.draw.line(self.gui.win, self.gui.color_pallete.button_slider_color2, (x + width, y), (x + width, y + height - 1), 2)
-
 
 class ElementComposition(Element):
     def __init__(self, layout, margin=None):
@@ -419,7 +400,65 @@ class RadioButtonContainer(ElementComposition):
             if element.selected and element.key != event:
                 element.selected = False
 
-    
+class ButtonContainer(ElementComposition):
+    ''' button container of elements '''
+    def __init__(self, key, layout, margin=None):
+        super().__init__(layout, margin)
+        self.key = key
+
+    def step(self):
+        super().step()
+        if self.gui.mouse_hold:
+            return
+        mouse_pos = pygame.mouse.get_pos()
+
+        if point_in_rect(mouse_pos, (self.pos, self.size)):
+            self.gui.focused_element = self
+        for element in self.elements:
+            element.step()
+
+    def draw(self):
+        super().draw()
+        if self is self.gui.focused_element:
+            color = self.gui.color_pallete.button_focus_back_color
+        else:
+            color = self.gui.color_pallete.button_back_color
+        pygame.draw.rect(self.gui.win, color, (self.pos, self.size))
+        for element in self.elements:
+            element.draw()
+
+class ButtonToggleContainer(ElementComposition):
+    ''' toggle button container of elements '''
+    def __init__(self, key, layout, margin=None):
+        super().__init__(layout, margin)
+        self.key = key
+        self.selected = False
+
+    def step(self):
+        super().step()
+        if self.gui.mouse_hold:
+            return
+        mouse_pos = pygame.mouse.get_pos()
+
+        if point_in_rect(mouse_pos, (self.pos, self.size)):
+            self.gui.focused_element = self
+        for element in self.elements:
+            element.step()
+
+    def on_click(self):
+        super().on_click()
+        self.selected = not self.selected
+        self.parent.notify_event(self.key)
+
+    def draw(self):
+        super().draw()
+        if self is self.gui.focused_element or self.selected:
+            color = self.gui.color_pallete.button_focus_back_color
+        else:
+            color = self.gui.color_pallete.button_back_color
+        pygame.draw.rect(self.gui.win, color, (self.pos, self.size))
+        for element in self.elements:
+            element.draw()
 
 if __name__ == '__main__':
     ''' example usage '''
@@ -439,15 +478,31 @@ if __name__ == '__main__':
         [Slider('sliderC3', 0, 100, 50)],
     ]
 
+    layout_button = [
+        [Text('im in a button'), Text('me too')],
+        [Text('me three'), Surf(image)]
+    ]
+
+    layout_button2 = [
+        [Text('im in a button'), Text('me too')],
+        [Text('me three'), Surf(image)]
+    ]
+
+    layout_radio = [
+        [ButtonToggleContainer('toggleButonM', layout_button2), CheckBox('checkMe', 'radioCheckbox')]
+    ]
+
     layout = [
         [Button('press me', key='button1'), Button('me too', key='button2'), CheckBox('toggleMe', key='toggl1')],
-        [Button('me three', key='button3'), Text('this is text'), ButtonImage('imImage', key='button_image1', image_surf=image)],
+        [Button('me three', key='button3'), Text('this is text')],
         [Slider('slider1', 0, 100, 50), Slider('slider2', 0, 100, 50, enable_events=True), Slider('slider3', 0, 100, 50), Slider('slider4', 0, 100, 50)],
         [ElementComposition(layout_comp), Button('press me', key='button4')],
-        [Button('button after last', key='afterlast')]
+        [Button('button after last', key='afterlast')],
+        [ButtonContainer('buttonContainer1', layout_button)],
+        [RadioButtonContainer(layout_radio)],
     ]
-    gui = Gui(win, layout, pos=(200, 200), margin=10)
-    
+    gui = Gui(win, layout, pos=(100, 100), margin=10)
+
     ### main loop
 
     run = True
