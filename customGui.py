@@ -55,17 +55,18 @@ class ColorPicker(gui.ElementComposition):
         super().__init__(sliders_layout)
         self.key = key
         
-    def get_value(self) -> Tuple[Any, Any]:
+    def get_values(self) -> Tuple[Any, Any]:
         values = {}
         for element in self.elements:
-            value = element.get_value()
-            if value:
-                values[value[0]] = value[1]
+            returned_values = element.get_values()
+            if returned_values:
+                for value in returned_values:
+                    values[value[0]] = value[1]
         
-        return (self.key, (int(values[self.r_key]), int(values[self.g_key]), int(values[self.b_key])))
+        return [(self.key, (int(values[self.r_key]), int(values[self.g_key]), int(values[self.b_key])))]
     
     def notify_event(self, event: str):
-        color = self.get_value()[1]
+        color = self.get_values()[0][1]
         self.color_rectangle.update_color(color)
         if self.enable_events:
             self.parent.notify_event(self.key)
@@ -83,9 +84,15 @@ if __name__ == '__main__':
     
     image = pygame.image.load('output.png')
     
+    check_box_layout = [
+        [gui.CheckBox('check1', 'check1'), gui.CheckBox('check2', 'check2')],
+        [gui.CheckBox('check3', 'check3')],
+    ]
+
     layout = [
         [gui.Button('press me', key='button1'), gui.Button('me too', key='button2'), gui.CheckBox('toggleMe', key='toggl1')],
-        [ClickableRectangle('get_color')]
+        [ClickableRectangle('get_color')],
+        [gui.RadioButtonContainer(check_box_layout)],
     ]
     gui_test = gui.Gui(win, layout, pos=(200, 200), margin=10)
     

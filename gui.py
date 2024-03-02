@@ -124,9 +124,10 @@ class Gui:
         self.event = None
         values = {'gui': self}
         for element in self.elements:
-            value = element.get_value()
-            if value:
-                values[value[0]] = value[1]
+            returned_values = element.get_values()
+            if returned_values:
+                for value in returned_values:
+                    values[value[0]] = value[1]
         return event, values
     
     def notify_event(self, event):
@@ -159,7 +160,7 @@ class Element:
         if GUI_DEBUG_MODE:
             pygame.draw.rect(self.gui.win, (255,255,0), (self.pos, self.size), 1)
         
-    def get_value(self) -> Tuple[Any, Any]:
+    def get_values(self) -> Tuple[Any, Any]:
         ''' return key value '''
         return None
         
@@ -231,11 +232,12 @@ class CheckBox(Button):
         self.text_surf = self.gui.default_font.render(self.text, True, self.gui.color_pallete.text_color)
         self.size = (self.text_surf.get_width() + self.margin * 3 + check_box_size[0], max(self.text_surf.get_height() + self.margin * 2, self.gui.min_element_height, check_box_size[1]))
 
-    def get_value(self) -> Tuple[Any, Any]:
-        return (self.key, self.selected)
+    def get_values(self) -> Tuple[Any, Any]:
+        return [(self.key, self.selected)]
         
     def on_click(self):
         self.selected = not self.selected
+        self.parent.notify_event(self.key)
     
     def draw(self):
         Element.draw(self)
@@ -301,8 +303,8 @@ class Slider(Element):
         super().initialize()
         self.size = (self.width, self.gui.min_element_height)
         
-    def get_value(self) -> Tuple[Any, Any]:
-        return (self.key, self.value)
+    def get_values(self) -> Tuple[Any, Any]:
+        return [(self.key, self.value)]
         
     def step(self):
         super().step()
@@ -397,16 +399,26 @@ class ElementComposition(Element):
         for element in self.elements:
             element.draw()
 
-    def get_value(self) -> Tuple[Any, Any]:
-        pass
+    def get_values(self) -> Tuple[Any, Any]:
+        values = []
+        for element in self.elements:
+            returned_values = element.get_values()
+            if returned_values:
+                values += returned_values
+        return values
+
 
     def notify_event(self, event : str):
         ''' internal elements can notify the parent of events '''
         pass
 
-class Window(ElementComposition):
-    def __init__(self, layout, pos, margin=None):
-        super().__init__(layout, margin)
+class RadioButtonContainer(ElementComposition):
+    ''' can hold stateful elements and allows only one to be selected '''
+    def notify_event(self, event: str):
+        for element in self.elements:
+            if element.selected and element.key != event:
+                element.selected = False
+
     
 
 if __name__ == '__main__':

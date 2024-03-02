@@ -10,3 +10,4 @@ PixelArt editor
 * [ ] color picker
 * [ ] effects menu
   * [ ] hue effect
+* [ ] layer bar
