@@ -39,11 +39,11 @@ class LayerBar:
         first_selected = False
         for layer in layers:
 
-            layer_surf_element = gui.Surf(layer.surf, fixed_size=(70,70))
+            layer_surf_element = gui.Surf(layer.surf, fixed_size=(50,50))
             self.layer_dict[layer.name] = {'layer': layer, 'element': layer_surf_element}
 
             layout_button = [
-                [layer_surf_element, gui.Text(layer.name)],
+                [layer_surf_element, gui.Text(layer.name, width=100)],
             ]
 
             layer_button = gui.ButtonToggleContainer(f'{SWITCH_LAYER}_{layer.name}' ,layout_button)

@@ -5,7 +5,7 @@ pysimplegui like gui manager for pygame
 from typing import List, Any, Tuple, Dict
 import pygame
 
-GUI_DEBUG_MODE = False
+GUI_DEBUG_MODE = True
 
 check_box_image = pygame.image.load(r'./Assets/checkbox.png')
 check_box_size = (13, 13)
@@ -101,10 +101,12 @@ class Gui:
             if event.button == 1:
                 if self.focused_element:
                     self.notify_event(self.focused_element.key)
-                    self.focused_element.on_click()
+                    self.focused_element.on_click_up()
                 self.mouse_hold = False
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
+                if self.focused_element:
+                    self.focused_element.on_click_down()
                 self.mouse_hold = True
         
         if self.focused_element:
@@ -147,8 +149,8 @@ class Gui:
         return self.dict[key]
 
 class Element:
-    def __init__(self, margin=None):
-        self.pos = (0,0)
+    def __init__(self, margin=None, pos=(0,0)):
+        self.pos = pos
         self.size = (0,0)
         self.gui : Gui = None
         self.parent : Element | Gui = None
@@ -159,6 +161,10 @@ class Element:
         ''' initial position is given, calculate self size and other attributes '''
         self.margin = self.margin if self.margin is not None else self.gui.inner_element_margin
     
+    def set_pos(self, pos):
+        vector = (pos[0] - self.pos[0], pos[1] - self.pos[1])
+        self.pos = (self.pos[0] + vector[0], self.pos[1] + vector[1])
+
     def set_gui(self, gui):
         self.gui = gui
         
@@ -173,7 +179,10 @@ class Element:
         ''' return key value '''
         return None
         
-    def on_click(self):
+    def on_click_up(self):
+        pass
+
+    def on_click_down(self):
         pass
         
     def on_release(self):
@@ -183,8 +192,8 @@ class Element:
         pass
 
 class Text(Element):
-    def __init__(self, text, margin=None, width=None):
-        super().__init__(margin)
+    def __init__(self, text, margin=None, width=None, pos=(0,0)):
+        super().__init__(margin, pos)
         self.text = text
         self.initial_width = width if width is not None else 0
 
@@ -201,8 +210,8 @@ class Text(Element):
         self.gui.win.blit(self.text_surf, (self.pos[0] + self.size[0] / 2 - self.text_surf.get_width() / 2, self.pos[1] + self.size[1] / 2 - self.text_surf.get_height() / 2))
 
 class Surf(Element):
-    def __init__(self, surf: pygame.Surface, scale: float=1.0, fixed_size=None, margin=None, smooth=False):
-        super().__init__(margin)
+    def __init__(self, surf: pygame.Surface, scale: float=1.0, fixed_size=None, margin=None, smooth=False, pos=(0,0)):
+        super().__init__(margin, pos)
         self.smooth = smooth
         self.scale = scale
         self.fixed_size = fixed_size
@@ -229,8 +238,8 @@ class Surf(Element):
         self.gui.win.blit(self.surf, self.pos)
 
 class Button(Element):
-    def __init__(self, text, key, margin=None):
-        super().__init__(margin)
+    def __init__(self, text, key, margin=None, pos=(0,0)):
+        super().__init__(margin, pos)
         self.key = key
         self.text = text
         
@@ -241,8 +250,6 @@ class Button(Element):
 
     def step(self):
         super().step()
-        if self.gui.mouse_hold:
-            return
         mouse_pos = pygame.mouse.get_pos()
 
         if point_in_rect(mouse_pos, (self.pos, self.size)):
@@ -259,8 +266,8 @@ class Button(Element):
         self.gui.win.blit(self.text_surf, (self.pos[0] + self.size[0] / 2 - self.text_surf.get_width() / 2, self.pos[1] + self.size[1] / 2 - self.text_surf.get_height() / 2))
 
 class CheckBox(Button):
-    def __init__(self, text, key, margin=None):
-        super().__init__(text, key, margin)
+    def __init__(self, text, key, margin=None, pos=(0,0)):
+        super().__init__(text, key, margin, pos)
         self.selected = False
     
     def initialize(self):
@@ -271,7 +278,7 @@ class CheckBox(Button):
     def get_values(self) -> Tuple[Any, Any]:
         return [(self.key, self.selected)]
         
-    def on_click(self):
+    def on_click_up(self):
         self.selected = not self.selected
         self.parent.notify_event(self.key)
     
@@ -294,8 +301,8 @@ class CheckBox(Button):
         self.gui.win.blit(self.text_surf, (self.pos[0] + check_box_size[0] + self.margin , self.pos[1] + self.size[1] / 2 - self.text_surf.get_height() / 2))
 
 class Slider(Element):
-    def __init__(self, key, min_value, max_value, initial_value, width=100, enable_events=False, margin=None):
-        super().__init__(margin)
+    def __init__(self, key, min_value, max_value, initial_value, width=100, enable_events=False, margin=None, pos=(0,0)):
+        super().__init__(margin, pos)
         self.min_value = min_value
         self.max_value = max_value
         self.value = initial_value
@@ -357,14 +364,20 @@ class Slider(Element):
         pygame.draw.line(self.gui.win, self.gui.color_pallete.button_slider_color2, (x + width, y), (x + width, y + height - 1), 2)
 
 class ElementComposition(Element):
-    def __init__(self, layout, margin=None):
-        super().__init__(margin)
+    def __init__(self, layout, margin=None, pos=(0,0)):
+        super().__init__(margin, pos)
         self.layout : List[List[Element]] = layout
         self.elements : List[Element]= []
 
     def initialize(self):
         super().initialize()
         self.calculate()
+
+    def set_pos(self, pos):
+        vector = (pos[0] - self.pos[0], pos[1] - self.pos[1])
+        self.pos = (self.pos[0] + vector[0], self.pos[1] + vector[1])
+        for element in self.elements:
+            element.pos = (element.pos[0] + vector[0], element.pos[1] + vector[1])
 
     def calculate(self):
         size_x = 0
@@ -426,8 +439,8 @@ class RadioButtonContainer(ElementComposition):
 
 class ButtonContainer(ElementComposition):
     ''' button container of elements '''
-    def __init__(self, key, layout, margin=None):
-        super().__init__(layout, margin)
+    def __init__(self, key, layout, margin=None, pos=(0,0)):
+        super().__init__(layout, margin, pos)
         self.key = key
 
     def step(self):
@@ -453,8 +466,8 @@ class ButtonContainer(ElementComposition):
 
 class ButtonToggleContainer(ElementComposition):
     ''' toggle button container of elements '''
-    def __init__(self, key, layout, margin=None):
-        super().__init__(layout, margin)
+    def __init__(self, key, layout, margin=None, pos=(0,0)):
+        super().__init__(layout, margin, pos)
         self.key = key
         self.selected = False
 
@@ -469,8 +482,8 @@ class ButtonToggleContainer(ElementComposition):
         for element in self.elements:
             element.step()
 
-    def on_click(self):
-        super().on_click()
+    def on_click_up(self):
+        super().on_click_up()
         self.selected = not self.selected
         self.parent.notify_event(self.key)
 
@@ -485,6 +498,50 @@ class ButtonToggleContainer(ElementComposition):
             pygame.draw.rect(self.gui.win, self.gui.color_pallete.button_slider_color, (self.pos, (2, self.size[1])))
         for element in self.elements:
             element.draw()
+
+class Canvas(ElementComposition):
+    def calculate(self):
+        ''' elements are positioned relative to self pos '''
+        size_x = 0
+        size_y = 0
+        for row in self.layout:
+            for element in row:
+                self.elements.append(element)
+                element.set_gui(self.gui)
+                element.parent = self
+                element.pos = (self.pos[0] + element.pos[0], self.pos[1] + element.pos[1])
+                element.initialize()
+
+                size_x = max(size_x, element.pos[0] - self.pos[0] + element.size[0] + self.margin)
+                size_y = max(size_y, element.pos[1] - self.pos[1] + element.size[1] + self.margin)
+        self.size = (size_x, size_y)
+
+class Draggable(ElementComposition):
+    def __init__(self, layout, margin=None, pos=(0,0)):
+        super().__init__(layout, margin, pos)
+        self.dragging = False
+        self.offset = (0,0)
+
+    def on_click_down(self):
+        mouse_pos = pygame.mouse.get_pos()
+        self.offset = (self.pos[0] - mouse_pos[0], self.pos[1] - mouse_pos[1])
+        self.dragging = True
+    
+    def on_click_up(self):
+        self.dragging = False
+
+    def step(self):
+        mouse_pos = pygame.mouse.get_pos()
+
+        if point_in_rect(mouse_pos, (self.pos, self.size)):
+            self.gui.focused_element = self
+
+        if self.dragging:
+            mouse_pos = pygame.mouse.get_pos()
+            self.set_pos((mouse_pos[0] + self.offset[0], mouse_pos[1] + self.offset[1]))
+        
+        super().step()
+
 
 if __name__ == '__main__':
     ''' example usage '''
@@ -518,6 +575,16 @@ if __name__ == '__main__':
         [ButtonToggleContainer('toggleButonM', layout_button2), CheckBox('checkMe', 'radioCheckbox')]
     ]
 
+    canvas_layout = [
+        [
+            # Text('im in canvas', pos=(0,0)),
+            Text('im in canvas', pos=(20,20)),
+            CheckBox('toggleMe', key='toggleCanvas', pos=(100,50)),
+            Button('button(100,100)', key='buttonCanvs', pos=(100,100)),
+            Draggable([[Text('DragMe'), Button('drag', 'drag_button')]])
+        ]
+    ]
+
     layout = [
         [Button('press me', key='button1'), Button('me too', key='button2'), CheckBox('toggleMe', key='toggl1')],
         [Button('me three', key='button3'), Text('this is text')],
@@ -526,6 +593,7 @@ if __name__ == '__main__':
         [Button('button after last', key='afterlast')],
         [ButtonContainer('buttonContainer1', layout_button)],
         [RadioButtonContainer(layout_radio)],
+        [Canvas(canvas_layout)],
     ]
     gui = Gui(win, layout, pos=(100, 100), margin=10)
 
