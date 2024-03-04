@@ -203,16 +203,22 @@ class Text(Element):
 class Surf(Element):
     def __init__(self, surf: pygame.Surface, scale: float=1.0, fixed_size=None, margin=None, smooth=False):
         super().__init__(margin)
-        if smooth:
-            self.surf = pygame.transform.smoothscale_by(surf, scale)
-        else:
-            self.surf = pygame.transform.scale_by(surf, scale)
+        self.smooth = smooth
+        self.scale = scale
+        self.fixed_size = fixed_size
+        self.update_surf(surf)
 
-        if fixed_size:
-            if smooth:
-                self.surf = pygame.transform.smoothscale(surf, fixed_size)
+    def update_surf(self, surf: pygame.Surface):
+        if self.smooth:
+            self.surf = pygame.transform.smoothscale_by(surf, self.scale)
+        else:
+            self.surf = pygame.transform.scale_by(surf, self.scale)
+
+        if self.fixed_size:
+            if self.smooth:
+                self.surf = pygame.transform.smoothscale(surf, self.fixed_size)
             else:
-                self.surf = pygame.transform.scale(surf, fixed_size)
+                self.surf = pygame.transform.scale(surf, self.fixed_size)
 
     def initialize(self):
         super().initialize()

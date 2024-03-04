@@ -15,4 +15,5 @@ PixelArt editor
 * [ ] effects menu
   * [X] hue effect
 * [ ] layer bar
-  * [X] functionality[ ]  update layers live
+  * [X] functionality
+  * [ ] update layers live

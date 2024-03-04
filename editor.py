@@ -263,6 +263,7 @@ class ViewPort:
         surf = self.active_layer.get_surf()
         pos_offset = (pos[0] - self.active_layer.pos[0], pos[1] - self.active_layer.pos[1])
         surf.set_at(pos_offset, color)
+        self.parent.layer_bar.update_layer(self.active_layer.name)
     
     def save(self, path):
         pygame.image.save(self.surf, path)
