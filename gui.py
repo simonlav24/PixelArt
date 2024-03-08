@@ -7,7 +7,7 @@ from enum import Enum
 from typing import List, Any, Tuple, Dict
 import pygame
 
-__version__ = '1.0.1'
+__version__ = '1.0.2'
 
 GUI_DEBUG_MODE = False
 
@@ -27,6 +27,10 @@ class VerticalAlignment(Enum):
     CENTER = 1
     BOTTOM = 2
 
+class HorizontalAlignment(Enum):
+    LEFT = 0
+    CENTER = 1
+    RIGHT = 2
 
 class ColorPallete:
     def __init__(self):
@@ -44,13 +48,15 @@ class Gui:
             - win: pygame window surface 
             - layout: list of rows of elements
     '''
-    def __init__(self, win: pygame.Surface, layout, pos=(0,0), name=None, min_element_height=16, margin=3, inner_element_margin=6, font=None):
+    def __init__(self, win: pygame.Surface, layout, **kwargs):
         self.name = 'Gui'
+        name = kwargs.get('name', None)
         if name:
             self.name = name
         self.win : pygame.Surface = win
         self.layout : List[List[Element]]= layout
         self.default_font = pygame.font.SysFont('Calibri', 14)
+        font = kwargs.get('font', None)
         if font:
             self.default_font = font
         self.color_pallete = ColorPallete()
@@ -58,17 +64,20 @@ class Gui:
         self.focused_element : Element = None
         self.event : str = None
         
-        self.min_element_height = min_element_height
-        self.margin = margin
-        self.inner_element_margin = inner_element_margin
+        self.min_element_height = kwargs.get('min_element_height', 16)
+        self.margin = kwargs.get('margin', 3)
+        self.inner_element_margin = kwargs.get('inner_element_margin', 6)
         
         self.elements : List[Element] = []
         self.dict : Dict[str : Element] = {}
-        self.pos = pos
+        self.pos = kwargs.get('pos', (0,0))
+        self.size = (0,0)
         
         self.calculate()
         
         self.mouse_hold = False
+
+        self.context_menu: Gui = None
 
     def __str__(self):
         return f'<Gui: {self.name}>'
@@ -130,6 +139,9 @@ class Gui:
                 }.get(element.vertical_alignment)
 
     def handle_event(self, event):
+        if self.context_menu:
+            self.context_menu.handle_event(event)
+            return
         if event.type == pygame.MOUSEBUTTONUP:
             if event.button == 1:
                 if self.focused_element:
@@ -140,6 +152,8 @@ class Gui:
             if event.button == 1:
                 if self.focused_element:
                     self.focused_element.on_click_down()
+                if not point_in_rect(pygame.mouse.get_pos(), (self.pos, self.size)):
+                    self.click_outside()
                 self.mouse_hold = True
         
         if self.focused_element:
@@ -147,7 +161,9 @@ class Gui:
             if self.mouse_hold:
                 self.focused_element.on_hold()
     
-    def step(self): 
+    def step(self):
+        if self.context_menu:
+            self.context_menu.step()
         if not self.mouse_hold:
             self.focused_element = None
         for element in self.elements:
@@ -159,6 +175,9 @@ class Gui:
 
         if GUI_DEBUG_MODE:
             pygame.draw.rect(self.win, (255,0,0), (self.pos, self.size), 1)
+
+        if self.context_menu:
+            self.context_menu.draw()
     
     def read(self):
         if not self.event:
@@ -180,6 +199,12 @@ class Gui:
 
     def __getitem__(self, key : str) -> 'Element':
         return self.dict[key]
+    
+    def set_context_menu(self, context_menu: 'Gui'):
+        self.context_menu = context_menu
+    
+    def click_outside(self):
+        pass
 
 
 class Element:
@@ -192,9 +217,18 @@ class Element:
         self.parent : Element | Gui = None
         self.key = None
 
+        self.initial_width = kwargs.get('width', 0)
+
         self.vertical_alignment = kwargs.get('vertical_alignment', VerticalAlignment.TOP)
+        self.horizontal_alignment = kwargs.get('horizontal_alignment', HorizontalAlignment.CENTER)
+        self.text_horizontal_alignment = kwargs.get('text_horizontal_alignment', HorizontalAlignment.CENTER)
+
+        # size inside cell of layout
         self.cell_size = (0,0)
+        # offset in cell
         self.cell_offset = (0,0)
+        # offset in bounding box
+        self.box_offset = (0,0)
     
     def initialize(self):
         ''' initial position is given, calculate self size and other attributes '''
@@ -233,10 +267,9 @@ class Element:
 
 
 class Text(Element):
-    def __init__(self, text, width=None, **kwargs):
+    def __init__(self, text, **kwargs):
         super().__init__(**kwargs)
         self.text = text
-        self.initial_width = width if width is not None else 0
 
     def initialize(self):
         super().initialize()
@@ -245,11 +278,15 @@ class Text(Element):
             bg_color = (10,10,10)
         self.text_surf = self.gui.default_font.render(self.text, True, self.gui.color_pallete.text_color, bg_color)
         self.size = (max(self.text_surf.get_width() + self.margin * 2, self.initial_width), max(self.text_surf.get_height() + self.margin * 2, self.gui.min_element_height))
+        self.box_offset = {
+            HorizontalAlignment.LEFT: (0, self.size[1] / 2 - self.text_surf.get_height() / 2),
+            HorizontalAlignment.CENTER: (self.size[0] / 2 - self.text_surf.get_width() / 2, self.size[1] / 2 - self.text_surf.get_height() / 2),
+            HorizontalAlignment.RIGHT: (self.size[0] - self.text_surf.get_width(), self.size[1] / 2 - self.text_surf.get_height() / 2)
+        }.get(self.text_horizontal_alignment)
 
     def draw(self):
         super().draw()
-        box_offset = (self.size[0] / 2 - self.text_surf.get_width() / 2, self.size[1] / 2 - self.text_surf.get_height() / 2)
-        self.gui.win.blit(self.text_surf, (self.pos[0] + box_offset[0] + self.cell_offset[0], self.pos[1] + box_offset[1] + self.cell_offset[1]))
+        self.gui.win.blit(self.text_surf, (self.pos[0] + self.box_offset[0] + self.cell_offset[0], self.pos[1] + self.box_offset[1] + self.cell_offset[1]))
 
 
 class Surf(Element):
@@ -290,7 +327,12 @@ class Button(Element):
     def initialize(self):
         super().initialize()
         self.text_surf = self.gui.default_font.render(self.text, True, self.gui.color_pallete.text_color)
-        self.size = (self.text_surf.get_width() + self.margin * 2, max(self.text_surf.get_height() + self.margin * 2, self.gui.min_element_height))
+        self.size = (max(self.text_surf.get_width() + self.margin * 2, self.initial_width), max(self.text_surf.get_height() + self.margin * 2, self.gui.min_element_height))
+        self.box_offset = {
+            HorizontalAlignment.LEFT: (self.gui.inner_element_margin, self.size[1] / 2 - self.text_surf.get_height() / 2),
+            HorizontalAlignment.CENTER: (self.size[0] / 2 - self.text_surf.get_width() / 2, self.size[1] / 2 - self.text_surf.get_height() / 2),
+            HorizontalAlignment.RIGHT: (self.size[0] - self.text_surf.get_width() - self.gui.inner_element_margin, self.size[1] / 2 - self.text_surf.get_height() / 2)
+        }.get(self.text_horizontal_alignment)
 
     def step(self):
         super().step()
@@ -305,9 +347,9 @@ class Button(Element):
             color = self.gui.color_pallete.button_focus_back_color
         else:
             color = self.gui.color_pallete.button_back_color
-        box_offset = (self.size[0] / 2 - self.text_surf.get_width() / 2, self.size[1] / 2 - self.text_surf.get_height() / 2)
+        
         pygame.draw.rect(self.gui.win, color, (self.pos, self.size))
-        self.gui.win.blit(self.text_surf, (self.pos[0] + box_offset[0], self.pos[1] + box_offset[1]))
+        self.gui.win.blit(self.text_surf, (self.pos[0] + self.box_offset[0], self.pos[1] + self.box_offset[1]))
 
 
 class CheckBox(Button):
@@ -568,7 +610,7 @@ class Canvas(ElementComposition):
         self.size = (size_x, size_y)
 
 
-class Draggable(ElementComposition):
+class DragContainer(ElementComposition):
     def __init__(self, layout, **kwargs):
         super().__init__(layout, **kwargs)
         self.dragging = False
@@ -593,6 +635,42 @@ class Draggable(ElementComposition):
             self.set_pos((mouse_pos[0] + self.offset[0], mouse_pos[1] + self.offset[1]))
         
         super().step()
+
+
+class ContextMenu(Gui):
+    def __init__(self, win: pygame.Surface, layout, parent: Gui, **kwargs):
+        super().__init__(win, layout, **kwargs)
+        self.parent = parent
+
+    def click_outside(self):
+        super().click_outside()
+        self.parent.set_context_menu(None)
+
+    def draw(self):
+        rect = (self.pos, self.size)
+        pygame.draw.rect(self.win, self.parent.color_pallete.button_back_color, rect)
+        super().draw()
+    
+    def notify_event(self, event):
+        self.parent.notify_event(event)
+        self.parent.set_context_menu(None)
+    
+    def calculate(self):
+        super().calculate()
+        for element in self.elements:
+            element.size = (max(self.size[0], element.size[0]), element.size[1])
+
+class ContextMenuButton(Button):
+    def __init__(self, text, layout, **kwargs):
+        super().__init__(text, None, **kwargs)
+        self.layout = layout
+    
+    def on_click_up(self):
+        super().on_click_up()
+        pos = (self.pos[0], self.pos[1] + self.size[1] + self.gui.margin)
+        context_menu = ContextMenu(self.gui.win, self.layout, self.gui, pos=pos, name=self.gui.name + '_context_menu')
+        self.gui.set_context_menu(context_menu)
+
 
 if __name__ == '__main__':
     print(f'gui for pygame version {__version__}')

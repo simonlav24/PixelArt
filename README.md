@@ -8,9 +8,8 @@ A practice in python, graphics, gui creating, design patterns, mvvm and more.
 
 ### Todo
 
-* [ ] undo-redo mechanism
-* [ ] save load project
 * [ ] tools
+
   * [X] pencil tool
   * [X] move tool
   * [X] eyedrop tool
@@ -18,14 +17,21 @@ A practice in python, graphics, gui creating, design patterns, mvvm and more.
   * [ ] selection tool
   * [ ] darken/lighten
 * [ ] viewport
+
   * [X] transparency texture
 * [ ] color picker
+
   * [X] rgb
   * [ ] hsl
 * [ ] effects menu
+
   * [X] hue effect
 * [ ] layer bar
+
   * [X] functionality
   * [X] update layers live
   * [ ] reorder move layers
   * [ ] layer visibility
+* [ ] undo-redo mechanism
+* [ ] copy-paste mechanism
+* [ ] save load project

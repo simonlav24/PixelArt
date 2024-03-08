@@ -33,7 +33,7 @@ def _test(win):
             Text('im in canvas', pos=(20,20)),
             CheckBox('toggleMe', key='toggleCanvas', pos=(100,50)),
             Button('button(100,100)', key='buttonCanvs', pos=(100,100)),
-            Draggable([[Text('DragMe'), Button('drag', 'drag_button')]])
+            DragContainer([[Text('DragMe'), Button('drag', 'drag_button')]])
         ]
     ]
 
@@ -67,6 +67,29 @@ def _test2(win):
 
     return Gui(win, layout)
 
+def _test_contextmenu(win):
+    file_layout = [
+        [Button('Open', 'file_open', text_horizontal_alignment=HorizontalAlignment.LEFT, width=150)],
+        [Button('Save', 'file_save', text_horizontal_alignment=HorizontalAlignment.LEFT)],
+        [Button('Save as', 'file_saveas', text_horizontal_alignment=HorizontalAlignment.LEFT)],
+        [Button('Close', 'file_close', text_horizontal_alignment=HorizontalAlignment.LEFT)],
+    ]
+
+    edit_layout = [
+        [Button('Copy', 'edit_copy', text_horizontal_alignment=HorizontalAlignment.LEFT, width=150)],
+        [Button('Paste', 'edit_paste', text_horizontal_alignment=HorizontalAlignment.LEFT)],
+        [Button('Clear', 'edit_clear', text_horizontal_alignment=HorizontalAlignment.LEFT)],
+    ]
+
+    layout = [
+        [
+            ContextMenuButton('File', file_layout),
+            ContextMenuButton('Edit', edit_layout),
+        ],
+        [Text('hi, this is text', width=200, text_horizontal_alignment=HorizontalAlignment.CENTER), Button('button', 'button')]
+    ]
+    return Gui(win, layout, pos=(100,100))
+
 if __name__ == '__main__':
     ''' example usage '''
     pygame.init()
@@ -74,7 +97,8 @@ if __name__ == '__main__':
 
     ### setup
     
-    gui = _test(win)
+    # gui = _test(win)
+    gui = _test_contextmenu(win)
 
     ### main loop
 
