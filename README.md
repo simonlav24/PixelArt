@@ -1,6 +1,8 @@
-# PixelArt
+# PixelArt Editor
 
-PixelArt editor
+Fun and intuitive pixel art editing and designing. Features will iclude customizable layers, animation creating and graphic effects.
+
+A practice in python, graphics, gui creating, design patterns, mvvm and more.
 
 ![alt text](Assets/screenshot.png)
 
