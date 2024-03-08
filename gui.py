@@ -1,11 +1,15 @@
 '''
 pysimplegui like gui manager for pygame
+by Simon Labusnky
 '''
 
+from enum import Enum
 from typing import List, Any, Tuple, Dict
 import pygame
 
-GUI_DEBUG_MODE = True
+__version__ = '1.0.1'
+
+GUI_DEBUG_MODE = False
 
 check_box_image = pygame.image.load(r'./Assets/checkbox.png')
 check_box_size = (13, 13)
@@ -17,6 +21,13 @@ def point_in_rect(pos, rect):
     return pos[0] > rect_pos[0] and pos[0] < rect_pos[0] + rect_size[0] and\
             pos[1] > rect_pos[1] and pos[1] < rect_pos[1] + rect_size[1]
 
+
+class VerticalAlignment(Enum):
+    TOP = 0
+    CENTER = 1
+    BOTTOM = 2
+
+
 class ColorPallete:
     def __init__(self):
         self.text_color = (213,213,213)
@@ -26,8 +37,14 @@ class ColorPallete:
         self.button_slider_color = (0,117,255)
         self.button_slider_color2 = (75,160,255)
 
+
 class Gui:
-    def __init__(self, win, layout, pos=(0,0), name=None, min_element_height=16, margin=3, inner_element_margin=6, font=None):
+    ''' main gui manager
+        args:
+            - win: pygame window surface 
+            - layout: list of rows of elements
+    '''
+    def __init__(self, win: pygame.Surface, layout, pos=(0,0), name=None, min_element_height=16, margin=3, inner_element_margin=6, font=None):
         self.name = 'Gui'
         if name:
             self.name = name
@@ -70,6 +87,9 @@ class Gui:
         size_x = 0
         size_y = 0
         
+        # rows for cell size calculation
+        row_cells = []
+
         for row in self.layout:
             pos_x_acc = self.pos[0]
             row_y_max = 0
@@ -91,11 +111,24 @@ class Gui:
 
             size_x = max(size_x, size_row_x)
             
+            row_cells.append(row_y_max)
+
             pos_y_acc += row_y_max + self.margin
             size_y += row_y_max + self.margin
 
         self.size = (size_x - self.margin, size_y - self.margin)
-    
+
+        # update cell size
+        for i, row in enumerate(self.layout):
+            cell_y = row_cells[i]
+            for element in row:
+                element.cell_size = (element.size[0], cell_y)
+                element.cell_offset = {
+                    VerticalAlignment.TOP: (0, 0),
+                    VerticalAlignment.CENTER: (0, element.cell_size[1] / 2 - element.size[1] / 2),
+                    VerticalAlignment.BOTTOM: (0, element.cell_size[1] - element.size[1]),
+                }.get(element.vertical_alignment)
+
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONUP:
             if event.button == 1:
@@ -148,14 +181,20 @@ class Gui:
     def __getitem__(self, key : str) -> 'Element':
         return self.dict[key]
 
+
 class Element:
-    def __init__(self, margin=None, pos=(0,0)):
-        self.pos = pos
+    ''' element base abstract class '''
+    def __init__(self, **kwargs):
+        self.pos = kwargs.get('pos', (0,0))
+        self.margin = kwargs.get('margin', None)
         self.size = (0,0)
         self.gui : Gui = None
         self.parent : Element | Gui = None
-        self.margin = margin
         self.key = None
+
+        self.vertical_alignment = kwargs.get('vertical_alignment', VerticalAlignment.TOP)
+        self.cell_size = (0,0)
+        self.cell_offset = (0,0)
     
     def initialize(self):
         ''' initial position is given, calculate self size and other attributes '''
@@ -173,7 +212,8 @@ class Element:
         
     def draw(self):
         if GUI_DEBUG_MODE:
-            pygame.draw.rect(self.gui.win, (255,255,0), (self.pos, self.size), 1)
+            pygame.draw.rect(self.gui.win, (255,255,0), ((self.pos[0] + self.cell_offset[0], self.pos[1] + self.cell_offset[1]), self.size), 1)
+            pygame.draw.rect(self.gui.win, (255,0,255), (self.pos, self.cell_size), 1)
         
     def get_values(self) -> Tuple[Any, Any]:
         ''' return key value '''
@@ -191,9 +231,10 @@ class Element:
     def on_hold(self):
         pass
 
+
 class Text(Element):
-    def __init__(self, text, margin=None, width=None, pos=(0,0)):
-        super().__init__(margin, pos)
+    def __init__(self, text, width=None, **kwargs):
+        super().__init__(**kwargs)
         self.text = text
         self.initial_width = width if width is not None else 0
 
@@ -207,11 +248,13 @@ class Text(Element):
 
     def draw(self):
         super().draw()
-        self.gui.win.blit(self.text_surf, (self.pos[0] + self.size[0] / 2 - self.text_surf.get_width() / 2, self.pos[1] + self.size[1] / 2 - self.text_surf.get_height() / 2))
+        box_offset = (self.size[0] / 2 - self.text_surf.get_width() / 2, self.size[1] / 2 - self.text_surf.get_height() / 2)
+        self.gui.win.blit(self.text_surf, (self.pos[0] + box_offset[0] + self.cell_offset[0], self.pos[1] + box_offset[1] + self.cell_offset[1]))
+
 
 class Surf(Element):
-    def __init__(self, surf: pygame.Surface, scale: float=1.0, fixed_size=None, margin=None, smooth=False, pos=(0,0)):
-        super().__init__(margin, pos)
+    def __init__(self, surf: pygame.Surface, scale: float=1.0, fixed_size=None, smooth=False, **kwargs):
+        super().__init__(**kwargs)
         self.smooth = smooth
         self.scale = scale
         self.fixed_size = fixed_size
@@ -237,9 +280,10 @@ class Surf(Element):
         super().draw()
         self.gui.win.blit(self.surf, self.pos)
 
+
 class Button(Element):
-    def __init__(self, text, key, margin=None, pos=(0,0)):
-        super().__init__(margin, pos)
+    def __init__(self, text, key, **kwargs):
+        super().__init__(**kwargs)
         self.key = key
         self.text = text
         
@@ -257,17 +301,18 @@ class Button(Element):
 
     def draw(self):
         super().draw()
-        pos = self.pos
         if self is self.gui.focused_element:
             color = self.gui.color_pallete.button_focus_back_color
         else:
             color = self.gui.color_pallete.button_back_color
+        box_offset = (self.size[0] / 2 - self.text_surf.get_width() / 2, self.size[1] / 2 - self.text_surf.get_height() / 2)
         pygame.draw.rect(self.gui.win, color, (self.pos, self.size))
-        self.gui.win.blit(self.text_surf, (self.pos[0] + self.size[0] / 2 - self.text_surf.get_width() / 2, self.pos[1] + self.size[1] / 2 - self.text_surf.get_height() / 2))
+        self.gui.win.blit(self.text_surf, (self.pos[0] + box_offset[0], self.pos[1] + box_offset[1]))
+
 
 class CheckBox(Button):
-    def __init__(self, text, key, margin=None, pos=(0,0)):
-        super().__init__(text, key, margin, pos)
+    def __init__(self, text, key, **kwargs):
+        super().__init__(text, key, **kwargs)
         self.selected = False
     
     def initialize(self):
@@ -300,9 +345,10 @@ class CheckBox(Button):
         self.gui.win.blit(check_box_image, (self.pos[0], self.pos[1] + self.size[1] / 2 - check_box_size[1] / 2), area)
         self.gui.win.blit(self.text_surf, (self.pos[0] + check_box_size[0] + self.margin , self.pos[1] + self.size[1] / 2 - self.text_surf.get_height() / 2))
 
+
 class Slider(Element):
-    def __init__(self, key, min_value, max_value, initial_value, width=100, enable_events=False, margin=None, pos=(0,0)):
-        super().__init__(margin, pos)
+    def __init__(self, key, min_value, max_value, initial_value, width=100, enable_events=False, **kwargs):
+        super().__init__(**kwargs)
         self.min_value = min_value
         self.max_value = max_value
         self.value = initial_value
@@ -363,9 +409,10 @@ class Slider(Element):
         pygame.draw.rect(self.gui.win, self.gui.color_pallete.button_slider_color, ((x, y), (width, height)))
         pygame.draw.line(self.gui.win, self.gui.color_pallete.button_slider_color2, (x + width, y), (x + width, y + height - 1), 2)
 
+
 class ElementComposition(Element):
-    def __init__(self, layout, margin=None, pos=(0,0)):
-        super().__init__(margin, pos)
+    def __init__(self, layout, **kwargs):
+        super().__init__(**kwargs)
         self.layout : List[List[Element]] = layout
         self.elements : List[Element]= []
 
@@ -377,7 +424,7 @@ class ElementComposition(Element):
         vector = (pos[0] - self.pos[0], pos[1] - self.pos[1])
         self.pos = (self.pos[0] + vector[0], self.pos[1] + vector[1])
         for element in self.elements:
-            element.pos = (element.pos[0] + vector[0], element.pos[1] + vector[1])
+            element.set_pos((element.pos[0] + vector[0], element.pos[1] + vector[1]))
 
     def calculate(self):
         size_x = 0
@@ -430,6 +477,7 @@ class ElementComposition(Element):
         ''' internal elements can notify the parent of events '''
         pass
 
+
 class RadioButtonContainer(ElementComposition):
     ''' can hold stateful elements and allows only one to be selected '''
     def notify_event(self, event: str):
@@ -437,10 +485,11 @@ class RadioButtonContainer(ElementComposition):
             if element.selected and element.key != event:
                 element.selected = False
 
+
 class ButtonContainer(ElementComposition):
     ''' button container of elements '''
-    def __init__(self, key, layout, margin=None, pos=(0,0)):
-        super().__init__(layout, margin, pos)
+    def __init__(self, key, layout, **kwargs):
+        super().__init__(layout, **kwargs)
         self.key = key
 
     def step(self):
@@ -464,10 +513,11 @@ class ButtonContainer(ElementComposition):
         for element in self.elements:
             element.draw()
 
+
 class ButtonToggleContainer(ElementComposition):
     ''' toggle button container of elements '''
-    def __init__(self, key, layout, margin=None, pos=(0,0)):
-        super().__init__(layout, margin, pos)
+    def __init__(self, key, layout, **kwargs):
+        super().__init__(layout, **kwargs)
         self.key = key
         self.selected = False
 
@@ -499,6 +549,7 @@ class ButtonToggleContainer(ElementComposition):
         for element in self.elements:
             element.draw()
 
+
 class Canvas(ElementComposition):
     def calculate(self):
         ''' elements are positioned relative to self pos '''
@@ -516,9 +567,10 @@ class Canvas(ElementComposition):
                 size_y = max(size_y, element.pos[1] - self.pos[1] + element.size[1] + self.margin)
         self.size = (size_x, size_y)
 
+
 class Draggable(ElementComposition):
-    def __init__(self, layout, margin=None, pos=(0,0)):
-        super().__init__(layout, margin, pos)
+    def __init__(self, layout, **kwargs):
+        super().__init__(layout, **kwargs)
         self.dragging = False
         self.offset = (0,0)
 
@@ -542,83 +594,5 @@ class Draggable(ElementComposition):
         
         super().step()
 
-
 if __name__ == '__main__':
-    ''' example usage '''
-    pygame.init()
-
-    winWidth = 1280
-    winHeight = 720
-    win = pygame.display.set_mode((winWidth,winHeight))
-
-    ### setup
-    
-    image = pygame.image.load('output.png')
-    
-    layout_comp = [
-        [Slider('sliderC1', 0, 100, 50)],
-        [Slider('sliderC2', 0, 100, 50)],
-        [Slider('sliderC3', 0, 100, 50)],
-    ]
-
-    layout_button = [
-        [Text('im in a button'), Text('me too')],
-        [Text('me three'), Surf(image)]
-    ]
-
-    layout_button2 = [
-        [Text('im in a button'), Text('me too')],
-        [Text('me three'), Surf(image)]
-    ]
-
-    layout_radio = [
-        [ButtonToggleContainer('toggleButonM', layout_button2), CheckBox('checkMe', 'radioCheckbox')]
-    ]
-
-    canvas_layout = [
-        [
-            # Text('im in canvas', pos=(0,0)),
-            Text('im in canvas', pos=(20,20)),
-            CheckBox('toggleMe', key='toggleCanvas', pos=(100,50)),
-            Button('button(100,100)', key='buttonCanvs', pos=(100,100)),
-            Draggable([[Text('DragMe'), Button('drag', 'drag_button')]])
-        ]
-    ]
-
-    layout = [
-        [Button('press me', key='button1'), Button('me too', key='button2'), CheckBox('toggleMe', key='toggl1')],
-        [Button('me three', key='button3'), Text('this is text')],
-        [Slider('slider1', 0, 100, 50), Slider('slider2', 0, 100, 50, enable_events=True), Slider('slider3', 0, 100, 50), Slider('slider4', 0, 100, 50)],
-        [ElementComposition(layout_comp), Button('press me', key='button4')],
-        [Button('button after last', key='afterlast')],
-        [ButtonContainer('buttonContainer1', layout_button)],
-        [RadioButtonContainer(layout_radio)],
-        [Canvas(canvas_layout)],
-    ]
-    gui = Gui(win, layout, pos=(100, 100), margin=10)
-
-    ### main loop
-
-    run = True
-    while run:
-        for event in pygame.event.get():
-            gui.handle_event(event)
-            if event.type == pygame.QUIT:
-                run = False
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_ESCAPE]:
-            run = False
-        
-        win.fill((37, 37, 37))
-        
-        gui.step()
-        
-        event, values = gui.read()
-        if event:
-            print(event, values)
-        
-        gui.draw()
-        
-        
-        
-        pygame.display.update()
+    print(f'gui for pygame version {__version__}')
