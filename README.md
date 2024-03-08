@@ -9,8 +9,14 @@ PixelArt editor
 * [ ] undo-redo mechanism
 * [ ] save load project
 * [ ] tools
+  * [X] pencil tool
+  * [X] move tool
+  * [X] eyedrop tool
   * [ ] hand tool
   * [ ] selection tool
+  * [ ] darken/lighten
+* [ ] viewport
+  * [X] transparency texture
 * [ ] color picker
   * [X] rgb
   * [ ] hsl
