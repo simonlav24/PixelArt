@@ -2,6 +2,8 @@
 
 PixelArt editor
 
+![alt text](Assets/screenshot.png)
+
 ### Todo
 
 * [ ] undo-redo mechanism

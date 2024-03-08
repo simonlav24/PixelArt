@@ -17,6 +17,7 @@ if __name__ == '__main__':
     winWidth = 1280
     winHeight = 720
     win = pygame.display.set_mode((winWidth,winHeight))
+    pygame.display.set_caption('PixelArt')
 
     args = parse_arguments()
 
