@@ -85,6 +85,7 @@ def _test_contextmenu(win):
         [
             ContextMenuButton('File', file_layout),
             ContextMenuButton('Edit', edit_layout),
+            ContextMenuButtonContainer([[Surf(pygame.image.load(r'C:\Simon\Projects\DegasIcons\lab\Assets\cpuDead.png'))]], file_layout, mouse_button=MouseButton.RIGHT)
         ],
         [Text('hi, this is text', width=200, text_horizontal_alignment=HorizontalAlignment.CENTER), Button('button', 'button')]
     ]

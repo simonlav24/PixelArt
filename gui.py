@@ -7,7 +7,7 @@ from enum import Enum
 from typing import List, Any, Tuple, Dict
 import pygame
 
-__version__ = '1.0.2'
+__version__ = '1.0.3'
 
 GUI_DEBUG_MODE = False
 
@@ -32,6 +32,13 @@ class HorizontalAlignment(Enum):
     CENTER = 1
     RIGHT = 2
 
+class MouseButton(Enum):
+    LEFT = 1
+    RIGHT = 2
+    MIDDLE = 3
+    SCROLL_UP = 4
+    SCROLL_DOWN = 5
+
 class ColorPallete:
     def __init__(self):
         self.text_color = (213,213,213)
@@ -41,6 +48,7 @@ class ColorPallete:
         self.button_slider_color = (0,117,255)
         self.button_slider_color2 = (75,160,255)
 
+pygame_to_gui_mouse = [None, MouseButton.LEFT, MouseButton.MIDDLE, MouseButton.RIGHT, MouseButton.SCROLL_UP, MouseButton.SCROLL_DOWN]
 
 class Gui:
     ''' main gui manager
@@ -143,18 +151,17 @@ class Gui:
             self.context_menu.handle_event(event)
             return
         if event.type == pygame.MOUSEBUTTONUP:
-            if event.button == 1:
-                if self.focused_element:
-                    self.notify_event(self.focused_element.key)
-                    self.focused_element.on_click_up()
+            if pygame_to_gui_mouse[event.button] == MouseButton.LEFT:
                 self.mouse_hold = False
+            if self.focused_element:
+                self.focused_element.on_click_up(pygame_to_gui_mouse[event.button])
         elif event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1:
-                if self.focused_element:
-                    self.focused_element.on_click_down()
+            if pygame_to_gui_mouse[event.button] == MouseButton.LEFT:
                 if not point_in_rect(pygame.mouse.get_pos(), (self.pos, self.size)):
-                    self.click_outside()
+                    self.click_outside(pygame_to_gui_mouse[event.button])
                 self.mouse_hold = True
+            if self.focused_element:
+                self.focused_element.on_click_down(pygame_to_gui_mouse[event.button])
         
         if self.focused_element:
             # send event of mouse held
@@ -203,7 +210,7 @@ class Gui:
     def set_context_menu(self, context_menu: 'Gui'):
         self.context_menu = context_menu
     
-    def click_outside(self):
+    def click_outside(self, mouse_button: MouseButton=None):
         pass
 
 
@@ -253,10 +260,10 @@ class Element:
         ''' return key value '''
         return None
         
-    def on_click_up(self):
+    def on_click_up(self, mouse_button: MouseButton=None):
         pass
 
-    def on_click_down(self):
+    def on_click_down(self, mouse_button: MouseButton=None):
         pass
         
     def on_release(self):
@@ -323,6 +330,7 @@ class Button(Element):
         super().__init__(**kwargs)
         self.key = key
         self.text = text
+        self.mouse_button = kwargs.get('mouse_button', MouseButton.LEFT)
         
     def initialize(self):
         super().initialize()
@@ -333,6 +341,11 @@ class Button(Element):
             HorizontalAlignment.CENTER: (self.size[0] / 2 - self.text_surf.get_width() / 2, self.size[1] / 2 - self.text_surf.get_height() / 2),
             HorizontalAlignment.RIGHT: (self.size[0] - self.text_surf.get_width() - self.gui.inner_element_margin, self.size[1] / 2 - self.text_surf.get_height() / 2)
         }.get(self.text_horizontal_alignment)
+
+    def on_click_up(self, mouse_button: MouseButton):
+        super().on_click_up(mouse_button)
+        if mouse_button == self.mouse_button:
+            self.parent.notify_event(self.key)
 
     def step(self):
         super().step()
@@ -365,9 +378,10 @@ class CheckBox(Button):
     def get_values(self) -> Tuple[Any, Any]:
         return [(self.key, self.selected)]
         
-    def on_click_up(self):
-        self.selected = not self.selected
-        self.parent.notify_event(self.key)
+    def on_click_up(self, mouse_button: MouseButton=None):
+        if mouse_button == self.mouse_button:
+            self.selected = not self.selected
+        super().on_click_up(mouse_button)
     
     def draw(self):
         Element.draw(self)
@@ -517,15 +531,20 @@ class ElementComposition(Element):
 
     def notify_event(self, event : str):
         ''' internal elements can notify the parent of events '''
-        pass
+        self.parent.notify_event(event)
 
 
 class RadioButtonContainer(ElementComposition):
     ''' can hold stateful elements and allows only one to be selected '''
     def notify_event(self, event: str):
         for element in self.elements:
-            if element.selected and element.key != event:
-                element.selected = False
+            try:
+                if element.selected and element.key != event:
+                    element.selected = False
+            except Exception as e:
+                print(f'element {element} is not a toggle button but is inside RadioButtonContainer')
+                quit(1)
+        self.parent.notify_event(event)
 
 
 class ButtonContainer(ElementComposition):
@@ -533,6 +552,7 @@ class ButtonContainer(ElementComposition):
     def __init__(self, key, layout, **kwargs):
         super().__init__(layout, **kwargs)
         self.key = key
+        self.mouse_button = kwargs.get('mouse_button', MouseButton.LEFT)
 
     def step(self):
         super().step()
@@ -544,6 +564,11 @@ class ButtonContainer(ElementComposition):
             self.gui.focused_element = self
         for element in self.elements:
             element.step()
+
+    def on_click_up(self, mouse_button: MouseButton = None):
+        super().on_click_up(mouse_button)
+        if mouse_button == self.mouse_button:
+            self.parent.notify_event(self.key)
 
     def draw(self):
         super().draw()
@@ -562,6 +587,7 @@ class ButtonToggleContainer(ElementComposition):
         super().__init__(layout, **kwargs)
         self.key = key
         self.selected = False
+        self.mouse_button = kwargs.get('mouse_button', MouseButton.LEFT)
 
     def step(self):
         super().step()
@@ -574,10 +600,11 @@ class ButtonToggleContainer(ElementComposition):
         for element in self.elements:
             element.step()
 
-    def on_click_up(self):
-        super().on_click_up()
-        self.selected = not self.selected
-        self.parent.notify_event(self.key)
+    def on_click_up(self, mouse_button: MouseButton=None):
+        super().on_click_up(mouse_button)
+        if self.mouse_button == mouse_button:
+            self.selected = not self.selected
+            self.parent.notify_event(self.key)
 
     def draw(self):
         super().draw()
@@ -616,12 +643,12 @@ class DragContainer(ElementComposition):
         self.dragging = False
         self.offset = (0,0)
 
-    def on_click_down(self):
+    def on_click_down(self, mouse_button: MouseButton=None):
         mouse_pos = pygame.mouse.get_pos()
         self.offset = (self.pos[0] - mouse_pos[0], self.pos[1] - mouse_pos[1])
         self.dragging = True
     
-    def on_click_up(self):
+    def on_click_up(self, mouse_button: MouseButton=None):
         self.dragging = False
 
     def step(self):
@@ -642,8 +669,8 @@ class ContextMenu(Gui):
         super().__init__(win, layout, **kwargs)
         self.parent = parent
 
-    def click_outside(self):
-        super().click_outside()
+    def click_outside(self, mouse_button: MouseButton=None):
+        super().click_outside(mouse_button)
         self.parent.set_context_menu(None)
 
     def draw(self):
@@ -660,16 +687,45 @@ class ContextMenu(Gui):
         for element in self.elements:
             element.size = (max(self.size[0], element.size[0]), element.size[1])
 
+
 class ContextMenuButton(Button):
     def __init__(self, text, layout, **kwargs):
         super().__init__(text, None, **kwargs)
         self.layout = layout
     
-    def on_click_up(self):
-        super().on_click_up()
-        pos = (self.pos[0], self.pos[1] + self.size[1] + self.gui.margin)
-        context_menu = ContextMenu(self.gui.win, self.layout, self.gui, pos=pos, name=self.gui.name + '_context_menu')
+    def on_click_up(self, mouse_button: MouseButton=None):
+        super().on_click_up(mouse_button)
+        if mouse_button == self.mouse_button:
+            pos = (self.pos[0], self.pos[1] + self.size[1] + self.gui.margin)
+            context_menu = ContextMenu(self.gui.win, self.layout, self.gui, pos=pos, name=self.gui.name + '_context_menu')
+            self.gui.set_context_menu(context_menu)
+
+
+class ContextMenuButtonContainer(ElementComposition):
+    def __init__(self, layout, context_menu_layout, **kwargs):
+        super().__init__(layout, **kwargs)
+        self.context_menu_layout = context_menu_layout
+        self.mouse_button = kwargs.get('mouse_button', MouseButton.LEFT)
+
+    def open_context_menu(self):
+        pos = pygame.mouse.get_pos()
+        context_menu = ContextMenu(self.gui.win, self.context_menu_layout, self.gui, pos=pos, name=self.gui.name + '_context_menu')
         self.gui.set_context_menu(context_menu)
+
+    def step(self):
+        super().step()
+        mouse_pos = pygame.mouse.get_pos()
+
+        if point_in_rect(mouse_pos, (self.pos, self.size)):
+            self.gui.focused_element = self
+
+    def on_click_up(self, mouse_button: MouseButton=None):
+        super().on_click_up(mouse_button)
+        if mouse_button == self.mouse_button:
+            self.open_context_menu()
+
+    
+        
 
 
 if __name__ == '__main__':
