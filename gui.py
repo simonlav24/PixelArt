@@ -7,7 +7,7 @@ from enum import Enum
 from typing import List, Any, Tuple, Dict
 import pygame
 
-__version__ = '1.0.3'
+__version__ = '1.0.4'
 
 GUI_DEBUG_MODE = False
 
@@ -586,7 +586,7 @@ class ButtonToggleContainer(ElementComposition):
     def __init__(self, key, layout, **kwargs):
         super().__init__(layout, **kwargs)
         self.key = key
-        self.selected = False
+        self.selected = kwargs.get('selected', False)
         self.mouse_button = kwargs.get('mouse_button', MouseButton.LEFT)
 
     def step(self):
