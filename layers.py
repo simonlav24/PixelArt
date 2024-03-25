@@ -16,6 +16,9 @@ class Layer:
     def get_surf(self):
         return self.surf
 
+    def set_surf(self, surf: pygame.Surface):
+        self.surf = surf
+
     def get_pos(self):
         return self.pos
 
@@ -57,7 +60,7 @@ class LayerBar:
             [gui.RadioButtonContainer(radio_layout)],
         ]
 
-        self.layer_bar_gui = gui.Gui(self.win, layout, self.pos, name='layer bar')
+        self.layer_bar_gui = gui.Gui(self.win, layout, pos=self.pos, name='layer bar')
 
     def update_layer(self, layer_name: str):
         ''' update single layer live '''
