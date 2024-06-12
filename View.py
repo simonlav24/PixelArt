@@ -15,6 +15,11 @@ class PixelArtViewportElement(gui.Element):
         ''' the position and size of the canvas inside the viewport '''
         self.canvas_pos = (100, 100)
         self.canvas_size = (0,0)
+
+        self.surf = None
+
+    def initialize(self):
+        pass
     
     def handle_event(self, event):
         ''' pygame event handler for viewport '''
@@ -140,6 +145,7 @@ class PixelArtView:
         layers = self.view_model.layers
         for layer in layers:
             self.viewport.canvas_size = (max(self.viewport.canvas_size[0], layer.surf.get_width()), max(self.viewport.canvas_size[1], layer.surf.get_height()))
+        
 
 
 if __name__ == "__main__":
