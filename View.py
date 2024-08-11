@@ -1,52 +1,68 @@
 
 import pygame
-import gui
+from pygame.math import Vector2
 from typing import List
-from layers import Layer
+
+import gui
+from layer_data import LayerBase
+from EditorViewModel import EditorViewModel
+from tools import ToolType
 
 class PixelArtViewportElement(gui.Element):
     ''' the main viewport canvas element of the gui.
         create the interaction events and notifies gui '''
     
-    def __init__(self, **kwargs):
+    def __init__(self, context: EditorViewModel, **kwargs):
         super().__init__(**kwargs)
-        self.size = (1000, 500)
+        self.context = context
 
-        ''' the position and size of the canvas inside the viewport '''
-        self.canvas_pos = (100, 100)
-        self.canvas_size = (0,0)
+        # adjust size in gui domain
+        self.size = Vector2(1000, 600)
 
-        self.surf = None
+        ''' the position and size of the canvas inside the viewport in win domain '''
+        self.canvas_size = Vector2(512, 512)
+        self.canvas_pos = self.pos + self.size - self.size / 2 - self.canvas_size / 2
 
     def initialize(self):
         pass
     
     def handle_event(self, event):
+        # print(event)
         ''' pygame event handler for viewport '''
         pass
 
-    def get_layers(self) -> List[Layer]:
+    def get_layers(self) -> List[LayerBase]:
         return self.gui.parent.view_model.layers
 
     def step(self):
         super().step()
+    
+    def get_position_in_canvas(self, pos_in_win: Vector2) -> Vector2:
+        return pos_in_win - self.pos
 
     def draw(self):
         win = self.gui.win
         super().draw()
+        
+        # draw gui size
         pygame.draw.rect(win, (255,255,255), (self.pos, self.size), 1)
-        pygame.draw.rect(win, (255,255,0), ((self.pos[0] + self.canvas_pos[0], self.pos[1] + self.canvas_pos[1]), self.canvas_size), 1)
-        mouse_pos = pygame.mouse.get_pos()
+
+        # draw canvas
+        pygame.draw.rect(win, (255,255,0), (self.pos + self.canvas_pos, self.canvas_size), 1)
+
+        # draw cursor
+        mouse_pos = Vector2(pygame.mouse.get_pos())
         pygame.draw.line(win, (255,255,255), (mouse_pos[0] - 10, mouse_pos[1]), (mouse_pos[0] + 10, mouse_pos[1]))
         pygame.draw.line(win, (255,255,255), (mouse_pos[0], mouse_pos[1] - 10), (mouse_pos[0], mouse_pos[1] + 10))
 
-        pos_in_canvas = (mouse_pos[0] - self.pos[0], mouse_pos[1] - self.pos[1])
+        # cursor position
+        pos_in_canvas = self.get_position_in_canvas(mouse_pos)
         pos_in_canvas_text = self.gui.default_font.render(str(pos_in_canvas), True, (255, 255, 255))
-        win.blit(pos_in_canvas_text, (mouse_pos[0], mouse_pos[1]))
+        win.blit(pos_in_canvas_text, mouse_pos + Vector2(10, 10))
 
-        layers = self.get_layers()
+        layers = self.context.layers
         for layer in layers:
-            win.blit(layer.get_surf(), (self.pos[0] + self.canvas_pos[0] + layer.pos[0], self.pos[1] + self.canvas_pos[1] + layer.pos[1]))
+            win.blit(layer.render(), self.pos + self.canvas_pos + layer.pos)
 
 
 class PixelArtGui(gui.Gui):
@@ -63,14 +79,14 @@ class PixelArtGui(gui.Gui):
 class PixelArtView:
     ''' the view object of the pixel art 
         does the gui's step, draw and pygame event handle'''
-    def __init__(self, win, view_model):
+    def __init__(self, win, context: EditorViewModel):
         self.win = win
-        self.view_model = view_model
+        self.context = context
 
-        menu_bar = self.create_menu_bar()
-        tool_bar = self.create_tool_bar()
-        self.viewport = self.create_viewport()
-        self.layer_bar = self.create_layer_bar()
+        menu_bar = self.create_menu_bar(context)
+        tool_bar = self.create_tool_bar(context)
+        self.viewport = self.create_viewport(context)
+        self.layer_bar = self.create_layer_bar(context)
 
         layout = [
             [menu_bar],
@@ -81,7 +97,7 @@ class PixelArtView:
 
         self.view = PixelArtGui(self.win, layout, self.viewport, parent=self)
 
-    def create_menu_bar(self):
+    def create_menu_bar(self, context: EditorViewModel) -> gui.Element:
         file_menu = [
             [gui.Button('New', 'menu_file_new'),],
             [gui.Button('Open', 'menu_file_open'),],
@@ -111,7 +127,7 @@ class PixelArtView:
 
         return menu_bar
 
-    def create_tool_bar(self):
+    def create_tool_bar(self, context: EditorViewModel) -> gui.Element:
         tool_bar = gui.RadioButtonContainer([
             [gui.ButtonToggleContainer('tool_move',   [[gui.Surf(pygame.image.load(r'./Assets/move.png'),      0.08, smooth=True)]], selected=True)],
             [gui.ButtonToggleContainer('tool_select', [[gui.Surf(pygame.image.load(r'./Assets/selection.png'), 0.08, smooth=True)]])],
@@ -120,29 +136,31 @@ class PixelArtView:
 
         return tool_bar
 
-    def create_viewport(self):
-        viewport = PixelArtViewportElement()
+    def create_viewport(self, context: EditorViewModel) -> gui.Element:
+        viewport = PixelArtViewportElement(context)
         return viewport
 
-    def create_layer_bar(self):
+    def create_layer_bar(self, context: EditorViewModel) -> gui.Element:
         return None
     
     def handle_event(self, event):
         ''' pygame event handler for entire gui '''
         self.view.handle_event(event)
+        self.context.handle_event(event)
 
     def step(self):
         self.view.step()
         event, values = self.view.read()
         if event:
-            self.view_model.handle_gui_event(event)
+            self.context.handle_gui_event(event)
 
-    def draw(self):
+    def draw(self, win: pygame.Surface):
         self.view.draw()
+        self.context.draw(win)
 
     def update_layers(self):
         ''' update the layer bar '''
-        layers = self.view_model.layers
+        layers = self.context.layers
         for layer in layers:
             self.viewport.canvas_size = (max(self.viewport.canvas_size[0], layer.surf.get_width()), max(self.viewport.canvas_size[1], layer.surf.get_height()))
         

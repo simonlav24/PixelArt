@@ -5,7 +5,7 @@ import utils
 
 from tools import *
 from toolBar import *
-from layers import *
+from layer_data import *
 
 
 class Editor:

@@ -6,6 +6,7 @@ by Simon Labusnky
 from enum import Enum
 from typing import List, Any, Tuple, Dict
 import pygame
+from pygame import Vector2
 
 __version__ = '1.0.4'
 
@@ -78,8 +79,8 @@ class Gui:
         
         self.elements : List[Element] = []
         self.dict : Dict[str : Element] = {}
-        self.pos = kwargs.get('pos', (0,0))
-        self.size = (0,0)
+        self.pos: Vector2 = kwargs.get('pos', Vector2(0,0))
+        self.size: Vector2 = Vector2(0,0)
         
         self.calculate()
         
@@ -217,10 +218,10 @@ class Gui:
 class Element:
     ''' element base abstract class '''
     def __init__(self, **kwargs):
-        self.pos = kwargs.get('pos', (0,0))
+        self.pos: Vector2 = kwargs.get('pos', Vector2(0,0))
+        self.size: Vector2 = Vector2(0,0)
         self.margin = kwargs.get('margin', None)
-        self.size = (0,0)
-        self.gui : Gui = None
+        self.gui: Gui = None
         self.parent : Element | Gui = None
         self.key = None
 
@@ -241,7 +242,7 @@ class Element:
         ''' initial position is given, calculate self size and other attributes '''
         self.margin = self.margin if self.margin is not None else self.gui.inner_element_margin
     
-    def set_pos(self, pos):
+    def set_pos(self, pos: Vector2):
         vector = (pos[0] - self.pos[0], pos[1] - self.pos[1])
         self.pos = (self.pos[0] + vector[0], self.pos[1] + vector[1])
 

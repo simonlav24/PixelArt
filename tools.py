@@ -1,18 +1,17 @@
 import pygame
-import gui
-import customGui
-# import editor
 
-TOOL_MOVE = 0
-TOOL_PENCIL = 1
-TOOL_EYEDROP = 2
-TOOL_RECT_SELECT = 3
+from enum import Enum
+
+class ToolType:
+    MOVE = 'move'
+    PENCIL = 'pencil'
+    EYEDROP = 'eyedrop'
+    RECT_SELECT = 'rect_select'
 
 class Selection:
     def __init__(self):
         self.active = False
         self.rect = None
-        self.parent: editor.Editor = None
     def set_rect(self, rect):
         self.rect = rect
     def draw(self):
@@ -24,21 +23,19 @@ class Selection:
         pygame.draw.rect(self.parent.win, (100,100,100), (pos, size), 1)
 
 class Tool:
-    def __init__(self, type):
-        self.parent : editor.Editor = None
+    def __init__(self, type: ToolType):
         self.type = type
-    def click_press(self):
+    
+    def handle_event(event):
+        ''' handle pygame event '''
         pass
-    def click_hold(self):
-        pass
-    def click_release(self):
-        pass
+    
     def draw(self):
         pass
 
 class ToolPencil(Tool):
     def __init__(self):
-        super().__init__(TOOL_PENCIL)
+        super().__init__(ToolType.PENCIL)
     def click_press(self):
         color = self.parent.current_color
         self.parent.viewport.set_at(pygame.mouse.get_pos(), color)
@@ -47,13 +44,13 @@ class ToolPencil(Tool):
 
 class ToolEyeDrop(Tool):
     def __init__(self):
-        super().__init__(TOOL_EYEDROP)
+        super().__init__(ToolType.EYEDROP)
     def click_press(self):
         self.parent.set_color(self.parent.viewport.get_at(pygame.mouse.get_pos()))
 
 class ToolRectangleSelect(Tool):
     def __init__(self):
-        super().__init__(TOOL_RECT_SELECT)
+        super().__init__(ToolType.RECT_SELECT)
         
         self.start = None
         self.end = None
@@ -74,11 +71,17 @@ class ToolRectangleSelect(Tool):
 
 class ToolMove(Tool):
     def __init__(self):
-        super().__init__(TOOL_MOVE)
+        super().__init__(ToolType._MOVE)
         self.last_pos = None
+
+    def handle_event(event):
+        return super().handle_event()
+    
+
     def click_press(self):
         viewport = self.parent.get_viewport()
         self.last_pos = viewport.get_mouse_pos_on_surf(pygame.mouse.get_pos())
+
     def click_hold(self):
         viewport = self.parent.get_viewport()
         last = self.last_pos

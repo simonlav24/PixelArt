@@ -2,6 +2,7 @@
 import pygame
 from EditorViewModel import *
 from View import *
+from layer_data import *
 
 if __name__ == '__main__':
     pygame.init()
@@ -13,7 +14,8 @@ if __name__ == '__main__':
     editor_view_model.set_view(pixel_art_view)
 
     # setup, create and load default layer
-    editor_view_model.load(r'Assets/image.png')
+    editor_view_model.load_image(r'Assets/image.png') 
+
 
     ### main loop
     run = True
@@ -34,7 +36,7 @@ if __name__ == '__main__':
         
         # draw
         win.fill((0,0,0))
-        pixel_art_view.draw()
+        pixel_art_view.draw(win)
         
         pygame.display.update()
 
